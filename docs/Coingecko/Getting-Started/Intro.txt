@@ -1,0 +1,66 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.coingecko.com/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Introduction
+
+Started in 2014, CoinGecko is the world's largest independent crypto data aggregator that is integrated with more than 1,000 crypto exchanges and lists more than 18,000 coins across 600+ categories. CoinGecko API offers the most comprehensive and reliable crypto market data through RESTful JSON endpoints.
+
+CoinGecko API now serves **onchain DEX data** across 250+ blockchain networks, 1,700+ decentralized exchanges (DEXes), and 15M+ tokens, powered by GeckoTerminal.
+
+Thousands of forward-thinking projects, Web3 developers, researchers, institutions, and enterprises use our API to obtain **price feeds, market data, metadata, and historical data of crypto assets, NFTs, and exchanges**.
+
+Here are some of the **common use cases** for clients who use CoinGecko API:
+
+* Crypto Exchanges (CEX, DEX), Trading Apps
+* Wallets (Hot, Cold)
+* Data Aggregator, Crypto Screener, Analytics Dashboard
+* AI Agents, DeFAI Apps
+* Block Explorer, Portfolio Tracker
+* DeFi Protocols, NFT Marketplaces, Digital Bank
+* Backtesting Trading Strategy
+* Accounting, Tax, Audit, HR Payroll
+* Research & Analysis: Media, Institution, Academic, VC, Financial
+* Oracles, Bots, Payments, E-commerce
+
+<br />
+
+🔥 New: [WebSocket API](https://docs.coingecko.com/websocket)
+
+<a href="/websocket">
+  <Frame>
+    <img src="https://mintcdn.com/coingecko/VlaOc2UnIs8mj72v/images/wss-banner-1.png?fit=max&auto=format&n=VlaOc2UnIs8mj72v&q=85&s=bd74fb20a26084018272eb6b63010804" noZoom data-og-width="2400" width="2400" data-og-height="470" height="470" data-path="images/wss-banner-1.png" data-optimize="true" data-opv="3" srcset="https://mintcdn.com/coingecko/VlaOc2UnIs8mj72v/images/wss-banner-1.png?w=280&fit=max&auto=format&n=VlaOc2UnIs8mj72v&q=85&s=bc17e03ee25137fbcc1eaac0733e6781 280w, https://mintcdn.com/coingecko/VlaOc2UnIs8mj72v/images/wss-banner-1.png?w=560&fit=max&auto=format&n=VlaOc2UnIs8mj72v&q=85&s=d8439f50c69e11ba595b6c07d97eb65c 560w, https://mintcdn.com/coingecko/VlaOc2UnIs8mj72v/images/wss-banner-1.png?w=840&fit=max&auto=format&n=VlaOc2UnIs8mj72v&q=85&s=8c232633716268ced5b171e3e38acbf5 840w, https://mintcdn.com/coingecko/VlaOc2UnIs8mj72v/images/wss-banner-1.png?w=1100&fit=max&auto=format&n=VlaOc2UnIs8mj72v&q=85&s=3ac0be8afcc3e9fba5b4c4a961c5cda7 1100w, https://mintcdn.com/coingecko/VlaOc2UnIs8mj72v/images/wss-banner-1.png?w=1650&fit=max&auto=format&n=VlaOc2UnIs8mj72v&q=85&s=b8e71e426137d6f26642360aa8f1c347 1650w, https://mintcdn.com/coingecko/VlaOc2UnIs8mj72v/images/wss-banner-1.png?w=2500&fit=max&auto=format&n=VlaOc2UnIs8mj72v&q=85&s=eb7699818b518264b9c3c65c5ec5a633 2500w" />
+  </Frame>
+</a>
+
+With WebSocket, you can now stream ultra-low latency, real-time prices, trades, and OHLCV chart data. <br />
+Subscribe to our [paid API plan](https://www.coingecko.com/en/api/pricing) (Analyst plan & above) to access WebSocket and REST API data delivery methods.
+
+<br />
+
+<Columns cols={2}>
+  <Card title="Setting Up Your API Key" icon="key" href="/docs/setting-up-your-api-key">
+    Start by creating your CoinGecko API key
+  </Card>
+
+  <Card title="Building with AI" icon="robot" href="/docs/building-with-ai">
+    Bring CoinGecko data to your AI apps
+  </Card>
+</Columns>
+
+export const FooterFix = () => {
+  React.useEffect(() => {
+    const paginationElement = document.getElementById('pagination');
+    if (paginationElement) paginationElement.remove();
+
+    const footerElement = document.getElementById('footer');
+    if (footerElement) footerElement.style.marginTop = '-40px';
+
+    const feedbackToolbarClass = document.querySelector('.feedback-toolbar');
+    if (feedbackToolbarClass) feedbackToolbarClass.style.paddingBottom = '0px';
+  }, []);
+
+  return null;
+};
+
+<FooterFix />

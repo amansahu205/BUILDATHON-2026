@@ -1,0 +1,31 @@
+# Common Components
+
+## StandardHeader
+
+| TAG | NAME | TYPE | REQ | DESCRIPTION |
+|  --- | --- | --- | --- | --- |
+| 8 | BeginString | string | Y | Must be set to FIXT.1.1. Since FIX version 5.0, this field represents the session version. The application version gets specified in Logon message's DefaultApplVerID (1137) tag. |
+| 9 | BodyLength | int | Y | Message length in bytes up to the checksum field; must be the second field in message. |
+| 35 | MsgType | string | Y | The type of message proceeding the header; must be the third field in the message. Supported values include: **Administrative (all sessions)** A = Login  j = BusinessReject  0 = Heartbeat  1 = TestRequest  2 = ResendRequest  3 = Reject  4 = SequenceReset  5 = Logout  **Order Entry**  D = NewOrderSingle  G = OrderCancelReplaceRequest  F = OrderCancelRequest  9 = OrderCancelReject  **Market Data**  x = SecurityListRequest  y = SecurityList  BK = SecurityListUpdateReport  V = MarketDataRequest  Y = MarketDataRequestReject  W = MarketDataSnapshotFullRefresh  X = MarketDataIncrementalRefresh |
+| 49 | SenderCompID | string | Y | Value chosen by the user used to identify sending session. |
+| 56 | TargetCompID | string | Y | Value assigned by the exchange. |
+| 34 | MsgSeqNum | int | Y | Monotonically increasing sequence number. |
+| 43 | PossDupFlag | boolean | C | Indicates possible retransmission of a message: N = Original Transmission  Y = Possible duplicate. |
+| 97 | PossResend | char | C | Indicates whether the message may have already been sent with a different sequence number. Useful when performing a replay: N = Original transmission  Y = Possible resend. |
+| 52 | SendingTime | utc timestamp | Y | Time the message was transmitted, expressed in UTC, microseconds: `YYYYMMDD-HH:MM:SS.ssssss`. |
+
+
+## StandardTrailer
+
+| TAG | NAME | TYPE | REQ | DESCRIPTION |
+|  --- | --- | --- | --- | --- |
+| 10 | CheckSum | string | Y | Three-byte checksum calculated by summing every byte in the message up to and not including the checksum field itself. This value is then moduloed by 256 and written with prefixed 0s (if necessary) to meet the 3-byte requirement. |
+
+
+## Parties
+
+| TAG | NAME | TYPE | REQ | DESCRIPTION |
+|  --- | --- | --- | --- | --- |
+| 453 | NoPartyIDs | int | Y | Number of PartyID (448), PartyIDSource (447), and PartyRole (452) entries. This tag must be the first entry before the repeating group(s). Must be set equal to 1. Only one party is supported per request. |
+| ↳448 | PartyID | string | Y | **Start of a new party group entry.** Party identifier/code. |
+| ↳452 | PartyRole | int | Y | Identifies the type or role of the PartyID (448) specified: 3 = Client ID. |

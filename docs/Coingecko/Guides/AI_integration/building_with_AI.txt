@@ -1,0 +1,28 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.coingecko.com/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Building with AI
+
+> Quick tips to empower your AI applications with CoinGecko API, and leverage our AI capabilities to help you build better and easier.
+
+CoinGecko provides a powerful suite of AI-native tools to help you integrate real-time, historical, and onchain market data into your applications. Whether you're building a sophisticated trading bot, a market analysis tool, or a simple portfolio tracker, our AI toolkit is here to accelerate your development.
+
+## Using `llms.txt`
+
+To help AI models interact with CoinGecko data effectively, we provide an `llms.txt` file at [/llms-full.txt](/llms-full.txt). This file gives models context on how to best query our API, ensuring more accurate and efficient data retrieval. We recommend utilizing this in your integrations of MCP and AI applications.
+
+## CoinGecko MCP Server
+
+The **MCP (Model-Context-Protocol)** Server is your gateway for connecting AI agents and large language models, like Claude and Gemini, directly to CoinGecko's live data streams. It's ideal for building conversational applications that can perform complex, real-time crypto analysis and answer user queries with up-to-the-minute information. Learn how to connect your AI agent by checking out [CoinGecko MCP Server](/docs/mcp-server)
+
+## Tools for Your Workflow
+
+We've integrated AI assistance directly into our documentation to help you find answers and ship faster.
+
+1. Use the **'Copy page'** button to copy endpoint-specific markdown prompts. You can take these prompts to your favorite LLM chat interface to explore use cases or generate boilerplate code.
+2. Stuck on a problem? Click the **'AI Support'** button anywhere in our docs to chat with our AI Assistant. It's trained to resolve your inquiries instantly.
+
+<Frame>
+  <img src="https://mintcdn.com/coingecko/M02rMX2XJMwBGpCe/images/docs/e9b8e85-image.png?fit=max&auto=format&n=M02rMX2XJMwBGpCe&q=85&s=d50f10a06097c241df55c3ab5b809d84" data-og-width="2006" width="2006" data-og-height="1364" height="1364" data-path="images/docs/e9b8e85-image.png" data-optimize="true" data-opv="3" srcset="https://mintcdn.com/coingecko/M02rMX2XJMwBGpCe/images/docs/e9b8e85-image.png?w=280&fit=max&auto=format&n=M02rMX2XJMwBGpCe&q=85&s=cb8143580ee2990c66855af7ec934061 280w, https://mintcdn.com/coingecko/M02rMX2XJMwBGpCe/images/docs/e9b8e85-image.png?w=560&fit=max&auto=format&n=M02rMX2XJMwBGpCe&q=85&s=c47b12a514d650c26024442ddb64d4f9 560w, https://mintcdn.com/coingecko/M02rMX2XJMwBGpCe/images/docs/e9b8e85-image.png?w=840&fit=max&auto=format&n=M02rMX2XJMwBGpCe&q=85&s=199af9b08dc0bdfae67226399b4409de 840w, https://mintcdn.com/coingecko/M02rMX2XJMwBGpCe/images/docs/e9b8e85-image.png?w=1100&fit=max&auto=format&n=M02rMX2XJMwBGpCe&q=85&s=b44f67afc911a4bbacb227726e9823cb 1100w, https://mintcdn.com/coingecko/M02rMX2XJMwBGpCe/images/docs/e9b8e85-image.png?w=1650&fit=max&auto=format&n=M02rMX2XJMwBGpCe&q=85&s=93c5c92256523702b423fc0547a3a833 1650w, https://mintcdn.com/coingecko/M02rMX2XJMwBGpCe/images/docs/e9b8e85-image.png?w=2500&fit=max&auto=format&n=M02rMX2XJMwBGpCe&q=85&s=a95711c3e148ec09d808029d05006564 2500w" />
+</Frame>

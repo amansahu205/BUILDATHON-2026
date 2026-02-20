@@ -1,0 +1,90 @@
+# DeFi Service API
+
+API for the DeFi Service
+
+Version: v2026_01_14
+
+## Servers
+
+Local server
+```
+http://localhost:7072
+```
+
+## Security
+
+### bearerAuth
+
+Type: http
+Scheme: bearer
+Bearer Format: JWT
+
+## Download OpenAPI description
+
+[DeFi Service API](https://docs.truemarkets.co/_spec/APIs/DeFi/v2026_01_14.yaml)
+
+## Other
+
+### Get authenticated user balances
+
+ - [GET /v1/defi/core/balances](https://docs.truemarkets.co/apis/defi/v2026_01_14/paths/~1v1~1defi~1core~1balances/get.md): Returns balances for all wallets associated with the authenticated user
+
+### Fetch a quote
+
+ - [POST /v1/defi/core/quote](https://docs.truemarkets.co/apis/defi/v2026_01_14/paths/~1v1~1defi~1core~1quote/post.md)
+
+### Execute a trade
+
+ - [POST /v1/defi/core/trade](https://docs.truemarkets.co/apis/defi/v2026_01_14/paths/~1v1~1defi~1core~1trade/post.md)
+
+### Prepare a transfer
+
+ - [POST /v1/defi/core/transfer/prepare](https://docs.truemarkets.co/apis/defi/v2026_01_14/paths/~1v1~1defi~1core~1transfer~1prepare/post.md)
+
+### Execute a transfer
+
+ - [POST /v1/defi/core/transfer/execute](https://docs.truemarkets.co/apis/defi/v2026_01_14/paths/~1v1~1defi~1core~1transfer~1execute/post.md)
+
+### Create a new wallet
+
+ - [POST /v1/defi/core/create-wallet](https://docs.truemarkets.co/apis/defi/v2026_01_14/paths/~1v1~1defi~1core~1create-wallet/post.md)
+
+### Prepare a wallet export payload
+
+ - [POST /v1/defi/core/wallet/export/prepare](https://docs.truemarkets.co/apis/defi/v2026_01_14/paths/~1v1~1defi~1core~1wallet~1export~1prepare/post.md)
+
+### Execute a wallet private key export
+
+ - [POST /v1/defi/core/wallet/export/execute](https://docs.truemarkets.co/apis/defi/v2026_01_14/paths/~1v1~1defi~1core~1wallet~1export~1execute/post.md)
+
+### Get the authenticated user profile
+
+ - [GET /v1/defi/core/profile/me](https://docs.truemarkets.co/apis/defi/v2026_01_14/paths/~1v1~1defi~1core~1profile~1me/get.md)
+
+### Get all active assets
+
+ - [GET /v1/defi/core/assets](https://docs.truemarkets.co/apis/defi/v2026_01_14/paths/~1v1~1defi~1core~1assets/get.md)
+
+### Get asset by chain and address
+
+ - [GET /v1/defi/core/asset/{chain}/{address}](https://docs.truemarkets.co/apis/defi/v2026_01_14/paths/~1v1~1defi~1core~1asset~1%7Bchain%7D~1%7Baddress%7D/get.md)
+
+### Get all watchlists
+
+ - [GET /v1/defi/core/watchlists](https://docs.truemarkets.co/apis/defi/v2026_01_14/paths/~1v1~1defi~1core~1watchlists/get.md): Returns all global/public watchlists.
+
+### Get watchlist by ID
+
+ - [GET /v1/defi/core/watchlists/{id}](https://docs.truemarkets.co/apis/defi/v2026_01_14/paths/~1v1~1defi~1core~1watchlists~1%7Bid%7D/get.md): Returns a specific global/public watchlist with all its assets.
+
+### Get transaction history
+
+ - [GET /v1/defi/core/history](https://docs.truemarkets.co/apis/defi/v2026_01_14/paths/~1v1~1defi~1core~1history/get.md): Returns a unified view of all user transactions including trades, transfers, and onramps
+
+### Create an onramp transaction
+
+ - [POST /v1/defi/core/onramp](https://docs.truemarkets.co/apis/defi/v2026_01_14/paths/~1v1~1defi~1core~1onramp/post.md): Initiates a Coinbase onramp flow for purchasing crypto with fiat
+
+### Get onramp transaction status
+
+ - [GET /v1/defi/core/onramp/transactions/{id}/status](https://docs.truemarkets.co/apis/defi/v2026_01_14/paths/~1v1~1defi~1core~1onramp~1transactions~1%7Bid%7D~1status/get.md): Returns the status of a specific onramp transaction

@@ -1,0 +1,96 @@
+# Market Data
+
+## SecurityListRequest (35=x)
+
+| TAG | NAME | TYPE | REQ | DESCRIPTION |
+|  --- | --- | --- | --- | --- |
+| 320 | SecurityReqID | string | Y | Unique identifier for the security request used to correlate the response to the request. |
+| 559 | SecurityListRequestType | string | Y | Specifies the scope of the security request.0 = Symbol4 = All Securities |
+| 55 | Symbol | string | C | Required when SecurityListRequestType (tag 559) is set to Symbol (0). Human representation of the security. |
+| 263 | SubscriptionRequestType | char | C | Indicates whether or not the request should enable or disable a subscription:0 = Snapshot1 = Snapshot + Updates2 = Disable previous Snapshot + Update request (i.e. unsubscribe) |
+
+
+## SecurityList (35=y)
+
+| TAG | NAME | TYPE | REQ | DESCRIPTION |
+|  --- | --- | --- | --- | --- |
+| 146 | NoRelatedSym | int | Y | When >0 a repeating group of instrument definitions follows. |
+| ↳55 | Symbol | string | Y | **Start of a new symbol group entry.**The symbol used to represent the instrument. |
+| ↳15 | Currency | string | Y | Currency used for prices, price increments, fees, etc. |
+| ↳167 | SecurityType | string | Y | Type of instrument. Currently the only value supported is:CSPOT = Crypto spot pairs |
+| ↳870 | NoInstrAttrib | int | C | Marks the beginning of the Instrument Attributes repeating group component. |
+| ↳↳871 | InstrAttribType | int | C | **Start of a new instrument attribute group entry.**Identifies the type of instrument attribute the InstrAttribValue (872) represents.40 = Average daily notional amount41 = Average daily trade quantity |
+| ↳↳872 | InstrAttribValue | string | C | The value corresponding to the InstrAttribType (871). |
+| 320 | SecurityReqID | string | Y | The SecurityReqID of the SecurityListRequest that this message is in response to. |
+| 322 | SecurityResponseID | string | Y | A unique response ID. |
+| 393 | TotNoRelatedSym | int | Y | Used to indicate the total number of securities being returned for this request. Used in the event that message fragmentation is required. |
+| 560 | SecurityRequestResult | string | Y | 0 = Valid request1 = Invalid or unsupported request2 = No instrument found4 = Instrument data temporarily unavailable |
+| 893 | LastFragment | char | N | N = Not Last messageY = Last Message for SecurityListRequest |
+
+
+## SecurityListUpdateReport (35=BK)
+
+| TAG | NAME | TYPE | REQ | DESCRIPTION |
+|  --- | --- | --- | --- | --- |
+| 146 | NoRelatedSym | int | Y | When >0 a repeating group of instrument definitions follows. |
+| ↳55 | Symbol | string | Y | **Start of a new symbol group entry.**The symbol used to represent the instrument (e.g. USDP, BTC, ETH, etc...). |
+| ↳1324 | ListUpdateAction | char | Y | Indicates the type of change for the instrument:A = AddD = DeleteM = ModifyS = Snapshot |
+| ↳15 | Currency | string | C | Currency used for prices, MPVs, fees, etc. |
+| ↳167 | SecurityType | string | Y | Type of instrument, currently the only value supported is:CSPOT = Crypto spot pairs |
+| ↳870 | NoInstrAttrib | int | C | Marks the beginning of the Instrument Attributes repeating group component. |
+| ↳↳871 | InstrAttribType | int | C | **Start of a new instrument attribute group entry.**Identifies the type of instrument attribute the InstrAttribValue (872) represents.40 = Average daily notional amount41 = Average daily trade quantity |
+| ↳↳872 | InstrAttribValue | string | C | The value corresponding to the InstrAttribType (871). |
+
+
+## MarketDataRequest (35=V)
+
+| TAG | NAME | TYPE | REQ | DESCRIPTION |
+|  --- | --- | --- | --- | --- |
+| 146 | NoRelatedSym | int | N | The number of symbols in the repeating group defined below. If unspecified or set to 0, the request applies to all symbols. |
+| ↳55 | Symbol | string | C | **Start of a new symbol group entry.**The symbol used to represent the instrument. |
+| ↳167 | SecurityType | string | C | Identifies the type of instrument.CSPOT = Crypto spot pairs |
+| 262 | MDReqID | string | Y | Unique identifier for Market Data Request. |
+| 263 | SubscriptionRequestType | char | Y | Type of subscription request:0 = Snapshots only1 = Subscribe (snapshots + updates)2 = Unsubscribe |
+| 264 | MarketDepth | int | N | Number of price levels this subscription is requesting. Defaults to 1.0 = Full book depth1 = Top of book (exchange best bid and offer)2+ = Specific book depth (inclusive of EBBO). Max supported depth for MarketDataSnapshotFullRefresh is 20 levels |
+
+
+## MarketDataRequestReject (35=Y)
+
+| TAG | NAME | TYPE | REQ | DESCRIPTION |
+|  --- | --- | --- | --- | --- |
+| 58 | Text | string | Y | Human readable text describing reason for reject limited to 256 characters. |
+| 262 | MDReqID | string | Y | The same value provided for the MDReqID on the MarketDataRequest message. |
+
+
+## MarketDataSnapshotFullRefresh (35=W)
+
+| TAG | NAME | TYPE | REQ | DESCRIPTION |
+|  --- | --- | --- | --- | --- |
+| 55 | Symbol | string | Y | The symbol used to represent the instrument. |
+| 167 | SecurityType | string | Y | Identifies the type of instrument.CSPOT = Crypto spot pairs |
+| 262 | MDReqID | string | Y | The same value provided for the MDReqID on the MarketDataRequest message. |
+| 268 | NoMDEntries | int | Y | Marks the beginning of a repeating group for market data entries while also indicating the number of market data entries in the group. Value must be > 0. |
+| ↳269 | MDEntryType | char | Y | **Start of a new market data group entry.**Indicates the type of MD entry, values include:0 = Bid (aggregated quantity interested in buying that is resting on the book at MDEntryPx)1 = Offer (aggregated quantity interested in selling that is resting on the book at MDEntryPx)2 = Trade (quantity and price of the most recent trade)" |
+| ↳278 | MDEntryID | long | C | A unique identifier used to reference the entry. |
+| ↳270 | MDEntryPx | decimal128 | Y | The price of the MD entry. |
+| ↳271 | MDEntrySize | decimal128 | C | The size of the MD entry. |
+| ↳273 | MDEntryTime | utc timestamp | N | The timestamp representing when the MD entry was generated. |
+| ↳1023 | MDPriceLevel | int | C | Indicates the level of price from the BBO with the BBO price as level 1. |
+| ↳2446 | AggressorSide | int | C | Indicates what side was the aggressor causing the match to occur.1 = Buy2 = Sell**Only used for trades.** |
+
+
+## MarketDataIncrementalRefresh (35=X)
+
+| TAG | NAME | TYPE | REQ | DESCRIPTION |
+|  --- | --- | --- | --- | --- |
+| 262 | MDReqID | string | Y | The same value provided for the MDReqID on the MarketDataRequest message. |
+| 268 | NoMDEntries | int | Y | Marks the beginning of a repeating group for market data entries while also indicating the number of market data entries in the group. Value must be > 0. |
+| ↳279 | MDUpdateAction | char | Y | **Start of a new market data group entry.**Indicates the type of update, supported values include:0 = New1 = Change2 = Delete |
+| ↳269 | MDEntryType | char | Y | Indicates the type of MD entry, values include:0 = Bid (aggregated quantity interested in buying that is resting on the book at MDEntryPx)1 = Offer (aggregated quantity interested in selling that is resting on the book at MDEntryPx)2 = Trade (quantity and price of the most recent trade)" |
+| ↳278 | MDEntryID | long | N | A unique identifier used to reference the entry. |
+| ↳270 | MDEntryPx | decimal128 | Y | The price of the MD entry. |
+| ↳271 | MDEntrySize | decimal128 | Y | The size of the MD entry. |
+| ↳273 | MDEntryTime | utc timestamp | N | The timestamp representing when the MD entry was generated. |
+| ↳55 | Symbol | string | Y | The symbol used to represent the instrument. |
+| ↳1023 | MDPriceLevel | int | C | Indicates the level of price from the BBO with the BBO price as level 1. Not included on trades. |
+| ↳2446 | AggressorSide | int | C | Indicates what side was the aggressor causing the match to occur.1 = Buy2 = Sell**Only used for trades.** |

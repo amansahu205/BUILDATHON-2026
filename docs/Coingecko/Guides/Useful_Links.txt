@@ -1,0 +1,45 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.coingecko.com/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# Useful Links
+
+> Some of the useful links to help you navigate while using the CoinGecko API
+
+#### Pricing Page and Top FAQs
+
+* [https://www.coingecko.com/en/api/pricing#general](https://www.coingecko.com/en/api/pricing#general)
+
+#### CoinGecko API Status
+
+* [https://status.coingecko.com/](https://status.coingecko.com/)
+
+#### CoinGecko API ID List
+
+* [Google Sheets](https://docs.google.com/spreadsheets/d/1wTTuxXt8n9q7C4NDXqQpI3wpKu1_5bGVmP9Xz0XGSyU)
+
+#### [Pro Swagger JSON (OAS)](https://docs.coingecko.com/reference/endpoint-overview)
+
+* CoinGecko Pro API — [coingecko-pro.json](https://raw.githubusercontent.com/coingecko/coingecko-api-oas/refs/heads/main/coingecko-pro.json)
+* GeckoTerminal Onchain API (Pro) — [onchain-pro.json](https://raw.githubusercontent.com/coingecko/coingecko-api-oas/refs/heads/main/onchain-pro.json)
+
+#### [Public/Demo Swagger JSON (OAS)](https://docs.coingecko.com/v3.0.1/reference/endpoint-overview)
+
+* CoinGecko Public/Demo API — [coingecko-demo.json](https://raw.githubusercontent.com/coingecko/coingecko-api-oas/refs/heads/main/coingecko-demo.json)
+* GeckoTerminal Onchain API (Demo) — [onchain-demo.json](https://raw.githubusercontent.com/coingecko/coingecko-api-oas/refs/heads/main/onchain-demo.json)
+
+#### Subscribe CoinGecko API newsletter update
+
+* [https://newsletter.coingecko.com/landing/api\_updates\_subscribe](https://newsletter.coingecko.com/landing/api_updates_subscribe)
+
+#### CoinGecko Methodologies (Price, Volume, Trust Score, etc.)
+
+* [https://www.coingecko.com/en/methodology](https://www.coingecko.com/en/methodology)
+
+#### Using `llms.txt` for AI use cases
+
+* [/llms-full.txt](/llms-full.txt)
+
+#### Attributing CoinGecko Brand
+
+* [https://brand.coingecko.com/resources/attribution-guide](https://brand.coingecko.com/resources/attribution-guide)

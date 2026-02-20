@@ -1,0 +1,33 @@
+> ## Documentation Index
+> Fetch the complete documentation index at: https://docs.coingecko.com/llms.txt
+> Use this file to discover all available pages before exploring further.
+
+# AI Prompts
+
+> CoinGecko API AI prompt library
+
+Accelerate your development with CoinGecko's curated AI prompts. These prompts are designed to guide AI-powered coding assistants in correctly implementing our official API SDKs (libraries), helping you spend less time debugging and more time building.
+
+## How to Use Our Prompts
+
+Integrating these prompts into your workflow is simple. Copy the entire markdown prompt for your chosen language and provide it as context to your AI assistant.
+
+1. For **Chat Interfaces (Claude, ChatGPT, etc.)**: Paste the prompt at the beginning of your conversation before asking the AI to write code.
+2. For **Cursor IDE**: Add the prompt to your project's `Rules` to enforce the guidelines across all AI interactions.
+3. For **GitHub Copilot**: Save the prompt to a file (e.g. `coingecko_rules.md`) and reference it in your chat with `@workspace #coingecko_rules.md`.
+
+## Available Prompts
+
+Select the prompt that matches your project's tech stack.
+
+* 🐍 **[Python](/docs/python-ai-prompts)**: A complete guide for implementing the CoinGecko API using our official [coingecko-sdk](https://pypi.org/project/coingecko-sdk/).
+* 🟦 **[TypeScript](/docs/typescript-ai-prompts#/)**: The definitive prompt for integrating the CoinGecko API with our official [@coingecko/coingecko-typescript](https://www.npmjs.com/package/@coingecko/coingecko-typescript) package.
+
+## Best Practices
+
+To get the most out of our AI prompts, keep these tips in mind:
+
+* **Be Specific**: After providing the main prompt, give the AI a clear, specific task (e.g. "Write a function to fetch the price of Bitcoin and Ethereum in EUR").
+* **Customize**: Feel free to modify the prompts to fit your project's unique requirements or coding standards.
+* **Version Control**: Store your customized prompts in your repository to ensure your entire team benefits from consistent AI-generated code.
+* **Always Review**: Treat AI-generated code as a starting point. Always review it for security, performance, and correctness.

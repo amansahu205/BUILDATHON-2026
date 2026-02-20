@@ -1,0 +1,23 @@
+# About True Markets
+
+**True Markets** is building the future of digital asset trading through a unified platform that bridges centralized and decentralized finance.
+
+## TrueX: CeFi Exchange
+
+[**TrueX**](/documentation/exchange/truex) is our centralized exchange (CeFi) built for institutional-grade speed, reliability, and compliance. It offers:
+
+- High-performance trading infrastructure
+- Secure custody through a qualified custodian
+- FIX, REST, and WebSocket APIs for market data, order entry, and account management
+
+
+## DeFi Gateway
+
+[**DeFi Gateway**](/apis/defi/v2026_01_14) brings non-custodial, smart contract-based trading to True Markets. Users are able to:
+
+- Trade directly from their wallets
+- Maintain full control of their assets
+- Interact with open, verifiable protocols
+
+
+**Both CeFi and DeFi systems are API-first**, with robust documentation and developer tools to support programmatic access to markets.

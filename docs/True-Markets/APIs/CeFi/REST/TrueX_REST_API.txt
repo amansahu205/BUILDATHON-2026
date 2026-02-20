@@ -1,0 +1,256 @@
+# TrueX REST API
+
+## Overview
+This API allows clients to interact with the **TrueX trading platform** for order management, market data retrieval, and account information.
+
+## Base URL
+```
+https://prod.truex.co/api/v1/
+```
+
+## Authentication
+Certain API requests must be **authenticated** using **HMAC-SHA256 signature authentication**.
+
+## API Versioning
+The API uses date-based versioning via the `X-Truex-Version` header. To request a specific API version, include the header in your request:
+```
+X-Truex-Version: v2024_01_01
+```
+
+**Supported Versions:**
+| Version | Status | Description |
+|---------|--------|-------------|
+| `v2024_01_01` | Current (Default) | Original API format - responses return raw data arrays/objects |
+| `v2026_01_23` | Current | New envelope format - responses wrapped in `{ "data": [...], "pagination": {...} }` |
+
+If no version header is provided, the API defaults to `v2024_01_01`. Use the `/api/v1/versions` endpoint to discover supported versions programmatically.
+
+**Response Format by Version:**
+- **v2024_01_01**: `[{...}, {...}]` (raw array) or `{...}` (raw object)
+- **v2026_01_23**: `{ "data": [...], "pagination": { "limit": 10, "next_cursor": "..." } }`
+
+**Error Response Format by Version:**
+- **v2024_01_01**: RFC 7807 Problem Details format
+- **v2026_01_23**: `{ "error": { ...RFC 7807 Problem Details... } }`
+
+**Deprecation Policy:**
+When a version is deprecated, responses will include RFC 8594 headers:
+- `Deprecation`: Date when the version was deprecated
+- `Sunset`: Date when the version will be removed
+
+## Links
+- 📖 **Full API Documentation**: [https://docs.truex.co/](https://docs.truex.co/)
+- 📧 **Support**: [support@truex.co](mailto:support@truex.co)
+
+
+Version: v1.0.3
+License: TrueX License
+
+## Servers
+
+```
+https://prod.truex.co
+```
+
+## Security
+
+### HMAC
+
+Clients must compute and send an HMAC signature in `x-truex-auth-signature`. The HMAC signature gets applied to the following payload:
+
+`timestamp + method + path + body`
+
+
+Note, method is all upper case and path is everything after the domain name including the / (e.g. /api/v1/order).
+Additional headers:
+* `x-truex-auth-signature`: The signature generated from processing the payload with the HMAC key.
+* `x-truex-auth-token`: The ID of the HMAC key being used.
+* `x-truex-auth-timestamp`: Current time as seconds since epoch.
+* `x-truex-auth-userid`: Client identifier.
+
+
+Type: apiKey
+In: header
+Name: x-api-key
+
+## Download OpenAPI description
+
+[TrueX REST API](https://docs.truemarkets.co/_spec/APIs/CeFi/REST/v1.yaml)
+
+## Service
+
+### Get service health
+
+ - [GET /api/v1/health](https://docs.truemarkets.co/apis/cefi/rest/v1/service/getservicehealth.md): Returns the current readiness status for the REST API Gateway. The response includes a human-readable status indicator, the service name, and the timestamp when the status was generated.
+
+
+### Get supported API versions
+
+ - [GET /api/v1/versions](https://docs.truemarkets.co/apis/cefi/rest/v1/service/getapiversions.md): Returns a list of supported API versions with their deprecation status. Use this endpoint to discover available versions and plan migrations when versions are deprecated.
+
+
+## Assets
+
+### Get assets
+
+ - [GET /api/v1/assets](https://docs.truemarkets.co/apis/cefi/rest/v1/assets/getassets.md): Query for assets available on the exchange by specific asset ID or name.  If no query parameters are supplied than ALL available assets will be returned.
+
+### Get assets (deprecated) (deprecated)
+
+ - [GET /api/v1/asset](https://docs.truemarkets.co/apis/cefi/rest/v1/assets/getasset.md):  Query for assets available on the exchange by specific asset ID or name.  If no query parameters are supplied than ALL available assets will be returned.
+
+## Instruments
+
+### Get instruments
+
+ - [GET /api/v1/instruments](https://docs.truemarkets.co/apis/cefi/rest/v1/instruments/getinstruments.md): Query for instruments available on the exchange by specific instrument ID or symbol.  If no query parameters are supplied than ALL available instruments will be returned.
+
+### Get instruments (deprecated) (deprecated)
+
+ - [GET /api/v1/instrument](https://docs.truemarkets.co/apis/cefi/rest/v1/instruments/getinstrument.md):  Query for instruments available on the exchange by specific instrument ID or symbol.  If no query parameters are supplied than ALL available instruments will be returned.
+
+## Market Data
+
+### Get markets
+
+ - [GET /api/v1/market/quote](https://docs.truemarkets.co/apis/cefi/rest/v1/market-data/getmarketdata.md): Query for the exchange best bid/offer (EBBO) by instrument ID. If no query parameters are supplied then ALL available EBBOs will be returned.
+
+### Get market quote
+
+ - [POST /api/v1/market/quote](https://docs.truemarkets.co/apis/cefi/rest/v1/market-data/postmarketquote.md): Calculate a VWAP (Volume-Weighted Average Price) quote for an asset based on a notional quantity (e.g. USD) across the order book.
+
+## Clients
+
+### Get clients
+
+ - [GET /api/v1/clients](https://docs.truemarkets.co/apis/cefi/rest/v1/clients/getclients.md): Query for a user's information.
+
+### Update settings
+
+ - [PATCH /api/v1/clients](https://docs.truemarkets.co/apis/cefi/rest/v1/clients/patchclients.md): Update client level settings.
+
+### Get clients (deprecated) (deprecated)
+
+ - [GET /api/v1/client](https://docs.truemarkets.co/apis/cefi/rest/v1/clients/getclient.md):  Query for a user's information.
+
+### Update settings (deprecated) (deprecated)
+
+ - [PATCH /api/v1/client](https://docs.truemarkets.co/apis/cefi/rest/v1/clients/patchclient.md):  Update client level settings.
+
+## Orders
+
+### Get orders
+
+ - [GET /api/v1/orders](https://docs.truemarkets.co/apis/cefi/rest/v1/orders/getordersplural.md): Fetches all orders for a client entered within the past 24 hours on the exchange. A filter can be provided to limit the results.
+
+### Create order
+
+ - [POST /api/v1/orders](https://docs.truemarkets.co/apis/cefi/rest/v1/orders/addorders.md): Create a new order for a specific instrument.
+
+### Modify order
+
+ - [PATCH /api/v1/orders](https://docs.truemarkets.co/apis/cefi/rest/v1/orders/modifyorders.md): Modify an existing active order request.
+
+### Cancel order
+
+ - [DELETE /api/v1/orders/{ref_id}](https://docs.truemarkets.co/apis/cefi/rest/v1/orders/cancelorders.md): Begins the cancellation process of an existing active order from the exchange. N.B. it is still possible to receive trades on the order that is being canceled.
+
+
+### All orders
+
+ - [GET /api/v1/orders/list](https://docs.truemarkets.co/apis/cefi/rest/v1/orders/getorderslistplural.md): Query for all orders placed on the exchange within the last 24 hours. A filter can be provided to limit the results.
+
+### Active orders
+
+ - [GET /api/v1/orders/active](https://docs.truemarkets.co/apis/cefi/rest/v1/orders/getordersactive.md): Query for orders currently active on the exchange.
+
+### All order trades
+
+ - [GET /api/v1/orders/trade](https://docs.truemarkets.co/apis/cefi/rest/v1/orders/getorderstradesplural.md): Fetches all trades for a client executed within the past 24 hours on the exchange.
+
+### Status order
+
+ - [GET /api/v1/orders/status/{ref_id}](https://docs.truemarkets.co/apis/cefi/rest/v1/orders/getordersstatus.md): Fetches the current status of a specific order identified by .
+
+
+### Status order (deprecated) (deprecated)
+
+ - [GET /api/v1/order/status/{ref_id}](https://docs.truemarkets.co/apis/cefi/rest/v1/orders/getorderstatus.md):  Fetches the current status of a specific order identified by . The service retains status data for a limited period (), but this retention window is subject to change via configuration or system resource availability.  must be one of the following:
+  * The exchange assigned order ID.
+
+  *  version 4 in its human readable form, with hypens, and in lowercase.
+
+  *  RFC 3986 compliant character string that does not exceed 18 characters.
+    * Acceptable characters are , , , , , , 
+
+
+### All orders (deprecated) (deprecated)
+
+ - [GET /api/v1/order/list](https://docs.truemarkets.co/apis/cefi/rest/v1/orders/getorderslist.md):  Query for all orders placed on the exchange within the last 24 hours. A filter can be provided to limit the results.
+
+### Active orders (deprecated) (deprecated)
+
+ - [GET /api/v1/order/active](https://docs.truemarkets.co/apis/cefi/rest/v1/orders/getorderactive.md):  Query for orders currently active on the exchange. An order ID may be supplied to query for a specific order, if this query parameter is not supplied then all active orders will be returned.
+
+### All order trades (deprecated) (deprecated)
+
+ - [GET /api/v1/order/trade](https://docs.truemarkets.co/apis/cefi/rest/v1/orders/getordertrades.md):  Fetches all trades for a client executed within the past 24 hours on the exchange. A filter can be provided to limit the results.
+
+### Get orders (deprecated) (deprecated)
+
+ - [GET /api/v1/order](https://docs.truemarkets.co/apis/cefi/rest/v1/orders/getorders.md):  Fetches all orders for a client entered within the past 24 hours on the exchange. A filter can be provided to limit the results.
+
+### Create order (deprecated) (deprecated)
+
+ - [POST /api/v1/order](https://docs.truemarkets.co/apis/cefi/rest/v1/orders/addorder.md):  Create a new order for a specific instrument.
+
+### Modify order (deprecated) (deprecated)
+
+ - [PATCH /api/v1/order](https://docs.truemarkets.co/apis/cefi/rest/v1/orders/modifyorder.md):  Modify an existing active order request.
+
+### Cancel order (deprecated) (deprecated)
+
+ - [DELETE /api/v1/order/{ref_id}](https://docs.truemarkets.co/apis/cefi/rest/v1/orders/cancelorder.md):  Begins the cancellation process of an existing active order from the exchange.  N.B. it is still possible to recieve trades on the order that is being canceled.  must be one of the following:
+ * The exchange assigned order ID.
+
+ *  version 4 in its human readable form, with hypens, and in lowercase.
+
+ *  RFC 3986 compliant character string that does not exceed 18 characters.
+   * Acceptable characters are , , , , , , 
+
+
+## Balances
+
+### Get balance
+
+ - [GET /api/v1/balances](https://docs.truemarkets.co/apis/cefi/rest/v1/balances/getbalances.md): Query for balance information current allocated to the exchange.
+
+### Get balance (deprecated) (deprecated)
+
+ - [GET /api/v1/balance](https://docs.truemarkets.co/apis/cefi/rest/v1/balances/getbalance.md):  Query for balance information current allocated to the exchange.
+
+## Transfers
+
+### Get transfer
+
+ - [GET /api/v1/transfers](https://docs.truemarkets.co/apis/cefi/rest/v1/transfers/gettransfersplural.md): Fetches all transfers for a client within the past 24 hours on the exchange.
+
+### Initiate transfer
+
+ - [POST /api/v1/transfers](https://docs.truemarkets.co/apis/cefi/rest/v1/transfers/addtransfersplural.md): Initiate a new transfer of assets to/from the exchange.
+
+### Get Active transfers
+
+ - [GET /api/v1/transfers/active](https://docs.truemarkets.co/apis/cefi/rest/v1/transfers/getactivetransfersplural.md): Fetches all currently active transfers on the exchange.
+
+### Get Active transfers (deprecated) (deprecated)
+
+ - [GET /api/v1/transfer/active](https://docs.truemarkets.co/apis/cefi/rest/v1/transfers/getactivetransfer.md):  Fetches all currently active transfers on the exchange. If a  is provided, returns details for the specified transfer. Otherwise, retrieves all active transfers for the authenticated client.
+
+### Get transfer (deprecated) (deprecated)
+
+ - [GET /api/v1/transfer](https://docs.truemarkets.co/apis/cefi/rest/v1/transfers/gettransfer.md):  Fetches all transfers for a client within the past 24 hours on the exchange.
+
+### Initiate transfer (deprecated) (deprecated)
+
+ - [POST /api/v1/transfer](https://docs.truemarkets.co/apis/cefi/rest/v1/transfers/addtransfer.md):  Initiate a new transfer of assets to/from the exchange.
