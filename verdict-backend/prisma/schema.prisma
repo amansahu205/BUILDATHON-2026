@@ -1,0 +1,373 @@
+// VERDICT Backend — Prisma schema
+// Ref: ../docs/BACKEND_STRUCTURE.md §2
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── ENUMS ────────────────────────────────────────────────────────────────────
+
+enum Role {
+  PARTNER
+  ASSOCIATE
+  PARALEGAL
+  ADMIN
+}
+
+enum CaseType {
+  MEDICAL_MALPRACTICE
+  EMPLOYMENT_DISCRIMINATION
+  COMMERCIAL_DISPUTE
+  CONTRACT_BREACH
+  OTHER
+}
+
+enum DocumentType {
+  PRIOR_DEPOSITION
+  MEDICAL_RECORDS
+  FINANCIAL_RECORDS
+  CORRESPONDENCE
+  EXHIBIT
+  OTHER
+}
+
+enum IngestionStatus {
+  PENDING
+  UPLOADING
+  INDEXING
+  READY
+  FAILED
+}
+
+enum WitnessRole {
+  DEFENDANT
+  PLAINTIFF
+  EXPERT
+  CORPORATE_REPRESENTATIVE
+  OTHER
+}
+
+enum SessionStatus {
+  LOBBY
+  ACTIVE
+  PAUSED
+  COMPLETE
+  ABANDONED
+}
+
+enum Aggression {
+  STANDARD
+  ELEVATED
+  HIGH_STAKES
+}
+
+enum EventType {
+  QUESTION
+  ANSWER
+  PAUSE
+  RESUME
+  TOPIC_CHANGE
+  SESSION_START
+  SESSION_END
+}
+
+enum SpeakerRole {
+  INTERROGATOR
+  WITNESS
+  SYSTEM
+}
+
+enum AlertType {
+  INCONSISTENCY
+  OBJECTION
+  COMPOSURE
+  COACHING
+}
+
+enum ImpeachmentRisk {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum AlertStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+  ANNOTATED
+}
+
+// ─── MODELS ───────────────────────────────────────────────────────────────────
+
+model Firm {
+  id                   String    @id @default(cuid())
+  name                 String
+  slug                 String    @unique
+  ssoMetadataUrl       String?
+  ssoMetadataXml       String?
+  ssoEnabled           Boolean   @default(false)
+  passwordLoginEnabled Boolean   @default(true)
+  retentionDays        Int       @default(90)
+  sentinelEnabled      Boolean   @default(false)
+  seats                Int
+  plan                 String    @default("trial")
+  planExpiresAt        DateTime?
+  setupComplete        Boolean   @default(false)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  users                User[]
+  cases                Case[]
+
+  @@index([plan])
+}
+
+model User {
+  id            String         @id @default(cuid())
+  firmId        String
+  email         String         @unique
+  name          String
+  role          Role
+  passwordHash  String?
+  isActive      Boolean        @default(true)
+  emailVerified Boolean        @default(false)
+  lastLoginAt   DateTime?
+  loginAttempts Int            @default(0)
+  lockedUntil   DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  firm          Firm           @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  ownedCases    Case[]         @relation("CaseOwner")
+  refreshTokens RefreshToken[]
+  annotations   AttorneyAnnotation[]
+
+  @@index([firmId])
+  @@index([firmId, role])
+  @@index([firmId, isActive])
+}
+
+model RefreshToken {
+  id         String    @id @default(cuid())
+  userId     String
+  tokenHash  String    @unique
+  deviceInfo String?
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Case {
+  id             String     @id @default(cuid())
+  firmId         String
+  ownerId        String
+  name           String
+  caseType       CaseType
+  caseTypeCustom String?
+  opposingFirm   String?
+  depositionDate DateTime?
+  isArchived     Boolean    @default(false)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  firm           Firm       @relation(fields: [firmId], references: [id], onDelete: Cascade)
+  owner          User       @relation("CaseOwner", fields: [ownerId], references: [id])
+  documents      Document[]
+  witnesses      Witness[]
+  sessions       Session[]
+
+  @@index([firmId])
+  @@index([ownerId])
+  @@index([firmId, isArchived])
+  @@index([firmId, depositionDate])
+}
+
+model Document {
+  id                   String          @id @default(cuid())
+  caseId               String
+  firmId               String
+  uploaderId           String?
+  filename             String
+  s3Key                String          @unique
+  fileSizeBytes        BigInt
+  mimeType             String
+  docType              DocumentType
+  pageCount            Int?
+  ingestionStatus      IngestionStatus @default(PENDING)
+  ingestionStartedAt   DateTime?
+  ingestionCompletedAt DateTime?
+  ingestionError       String?
+  niaIndexId           String?
+  extractedFacts       Json?
+  factsConfirmedAt     DateTime?
+  fileHash             String?
+  version              Int             @default(1)
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  case                 Case            @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId])
+  @@index([firmId])
+  @@index([caseId, ingestionStatus])
+}
+
+model Witness {
+  id                String      @id @default(cuid())
+  caseId            String
+  firmId            String
+  name              String
+  email             String
+  role              WitnessRole
+  notes             String?
+  linkedDocumentIds String[]    @default([])
+  sessionCount      Int         @default(0)
+  latestScore       Int?
+  baselineScore     Int?
+  plateauDetected   Boolean     @default(false)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  case              Case        @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  sessions          Session[]
+
+  @@index([caseId])
+  @@index([firmId])
+}
+
+model Session {
+  id                      String        @id @default(cuid())
+  caseId                  String
+  firmId                  String
+  witnessId               String
+  attorneyId              String?
+  sessionNumber           Int           @default(1)
+  status                  SessionStatus @default(LOBBY)
+  durationMinutes         Int
+  aggression              Aggression    @default(STANDARD)
+  focusAreas              String[]      @default([])
+  objectionCopilotEnabled Boolean       @default(true)
+  sentinelEnabled         Boolean       @default(false)
+  witnessToken            String?       @unique
+  witnessJoined           Boolean       @default(false)
+  witnessJoinedAt         DateTime?
+  startedAt               DateTime?
+  endedAt                 DateTime?
+  pausedAt                DateTime?
+  totalPauseMs            Int           @default(0)
+  questionCount           Int           @default(0)
+  sessionScore            Int?
+  consistencyRate         Float?
+  transcriptRaw           String?
+  niaSessionContextId     String?
+  priorWeakAreas          Json?
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
+  case                    Case          @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  witness                 Witness       @relation(fields: [witnessId], references: [id], onDelete: Cascade)
+  events                  SessionEvent[]
+  alerts                  Alert[]
+  brief                   Brief?
+  annotations             AttorneyAnnotation[]
+
+  @@index([caseId])
+  @@index([witnessId])
+  @@index([firmId])
+  @@index([firmId, status])
+}
+
+model SessionEvent {
+  id             String       @id @default(cuid())
+  sessionId      String
+  firmId         String
+  eventType      EventType
+  speakerRole    SpeakerRole?
+  content        String?
+  questionNumber Int?
+  audioS3Key     String?
+  durationMs     Int?
+  metadata       Json?
+  createdAt      DateTime     @default(now())
+  session        Session      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([sessionId, eventType])
+}
+
+model Alert {
+  id                String           @id @default(cuid())
+  sessionId         String
+  firmId            String
+  alertType         AlertType
+  impeachmentRisk   ImpeachmentRisk?
+  status            AlertStatus      @default(PENDING)
+  confidence        Float?
+  priorQuote        String?
+  priorSourcePage   Int?
+  priorSourceLine   Int?
+  currentQuote      String?
+  freRule           String?
+  freClassification String?
+  composureData     Json?
+  questionNumber    Int?
+  confirmedAt       DateTime?
+  rejectedAt        DateTime?
+  annotatedAt       DateTime?
+  annotation        String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  session           Session          @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([sessionId, alertType])
+  @@index([sessionId, status])
+}
+
+model Brief {
+  id                  String               @id @default(cuid())
+  sessionId           String               @unique
+  firmId              String
+  witnessId           String
+  sessionScore        Int
+  consistencyRate     Float
+  deltaVsBaseline     Int?
+  confirmedFlags      Int                  @default(0)
+  objectionCount      Int                  @default(0)
+  composureAlerts     Int                  @default(0)
+  topRecommendations  String[]             @default([])
+  narrativeText       String
+  pdfS3Key            String?
+  shareToken          String?              @unique
+  shareTokenExpiresAt DateTime?
+  weaknessMapScores   Json?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  session             Session              @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  annotations         AttorneyAnnotation[]
+
+  @@index([firmId])
+  @@index([witnessId])
+}
+
+model AttorneyAnnotation {
+  id             String   @id @default(cuid())
+  sessionId      String
+  firmId         String
+  userId         String?
+  briefId        String?
+  content        String
+  timestampMs    Int?
+  questionNumber Int?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  session        Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user           User?    @relation(fields: [userId], references: [id])
+  brief          Brief?   @relation(fields: [briefId], references: [id])
+
+  @@index([sessionId])
+}

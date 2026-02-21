@@ -1,0 +1,228 @@
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* VERDICT Dark Legal SaaS — Primary palette */
+    --background: 222 47% 6%;
+    --foreground: 210 40% 95%;
+
+    --card: 222 44% 8%;
+    --card-foreground: 210 40% 95%;
+
+    --popover: 222 44% 10%;
+    --popover-foreground: 210 40% 95%;
+
+    --primary: 38 92% 50%;
+    --primary-foreground: 222 47% 6%;
+
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 90%;
+
+    --muted: 217 30% 14%;
+    --muted-foreground: 215 20% 55%;
+
+    --accent: 217 33% 20%;
+    --accent-foreground: 210 40% 95%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217 30% 18%;
+    --input: 217 30% 18%;
+    --ring: 38 92% 50%;
+
+    --radius: 0.5rem;
+
+    /* VERDICT semantic colors */
+    --verdict-navy: 222 47% 11%;
+    --verdict-slate: 217 33% 17%;
+    --verdict-gold: 38 92% 50%;
+    --verdict-gold-muted: 38 60% 40%;
+    --verdict-amber: 38 92% 50%;
+    --verdict-red: 0 72% 51%;
+    --verdict-red-muted: 0 50% 30%;
+    --verdict-green: 142 71% 45%;
+    --verdict-green-muted: 142 40% 25%;
+    --verdict-blue: 217 91% 60%;
+    --verdict-orange: 25 95% 53%;
+    --verdict-surface: 222 44% 10%;
+    --verdict-surface-raised: 222 40% 13%;
+
+    /* Alert severity */
+    --alert-objection: 0 72% 51%;
+    --alert-inconsistency: 38 92% 50%;
+    --alert-sentinel: 25 95% 53%;
+    --alert-info: 217 91% 60%;
+
+    /* Score colors */
+    --score-excellent: 142 71% 45%;
+    --score-good: 142 50% 40%;
+    --score-average: 38 92% 50%;
+    --score-poor: 25 95% 53%;
+    --score-critical: 0 72% 51%;
+
+    /* Sidebar */
+    --sidebar-background: 222 47% 8%;
+    --sidebar-foreground: 215 20% 65%;
+    --sidebar-primary: 38 92% 50%;
+    --sidebar-primary-foreground: 222 47% 6%;
+    --sidebar-accent: 217 33% 15%;
+    --sidebar-accent-foreground: 210 40% 95%;
+    --sidebar-border: 217 30% 16%;
+    --sidebar-ring: 38 92% 50%;
+
+    /* Typography */
+    --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-display: 'Syne', system-ui, sans-serif;
+    --font-serif: 'Instrument Serif', Georgia, serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans);
+  }
+
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    @apply tracking-tight;
+  }
+
+  h4, h5, h6 {
+    font-family: var(--font-sans);
+    @apply font-semibold tracking-tight;
+  }
+
+  code, pre, .font-mono {
+    font-family: var(--font-mono);
+  }
+}
+
+@layer utilities {
+  .text-gradient-gold {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, hsl(38 92% 50%), hsl(38 70% 65%));
+  }
+
+  .bg-gradient-verdict {
+    background: linear-gradient(135deg, hsl(222 47% 8%), hsl(217 33% 12%));
+  }
+
+  .bg-gradient-gold {
+    background: linear-gradient(135deg, hsl(38 92% 50%), hsl(38 80% 45%));
+  }
+
+  .shadow-verdict {
+    box-shadow: 0 4px 24px -4px hsl(222 47% 4% / 0.6);
+  }
+
+  .shadow-gold {
+    box-shadow: 0 4px 20px -4px hsl(38 92% 50% / 0.25);
+  }
+
+  .border-glow-gold {
+    box-shadow: 0 0 12px -2px hsl(38 92% 50% / 0.15);
+  }
+
+  /* Glassmorphism */
+  .glass {
+    background: hsl(222 47% 8% / 0.4);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid hsl(217 30% 18% / 0.5);
+  }
+
+  .glass-strong {
+    background: hsl(222 47% 8% / 0.6);
+    backdrop-filter: blur(40px);
+    -webkit-backdrop-filter: blur(40px);
+    border: 1px solid hsl(217 30% 18% / 0.6);
+  }
+
+  /* Custom cursor */
+  .custom-cursor {
+    pointer-events: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 9999;
+    width: 32px;
+    height: 32px;
+    border: 2px solid hsl(38 92% 50%);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    transition: width 0.2s ease, height 0.2s ease, border-color 0.2s ease;
+    mix-blend-mode: difference;
+  }
+
+  .custom-cursor.hovering {
+    width: 56px;
+    height: 56px;
+    border-color: hsl(38 92% 60%);
+  }
+
+  /* Marquee */
+  .marquee-track {
+    display: flex;
+    width: max-content;
+    animation: marqueeScroll 30s linear infinite;
+  }
+
+  /* Orbs */
+  .orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    animation: orbPulse 6s ease-in-out infinite alternate;
+  }
+
+  /* Scrollytelling panel */
+  .scrolly-panel {
+    opacity: 0;
+    transform: translateY(40px);
+    transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+  }
+
+  .scrolly-panel.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Stagger delay utilities */
+  .stagger-1 { animation-delay: 0ms; }
+  .stagger-2 { animation-delay: 100ms; }
+  .stagger-3 { animation-delay: 200ms; }
+  .stagger-4 { animation-delay: 300ms; }
+  .stagger-5 { animation-delay: 400ms; }
+  .stagger-6 { animation-delay: 500ms; }
+}
+
+@keyframes marqueeScroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+@keyframes orbPulse {
+  0% { transform: scale(1); opacity: 0.3; }
+  100% { transform: scale(1.3); opacity: 0.6; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-20px); }
+}
+
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
