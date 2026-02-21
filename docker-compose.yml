@@ -1,0 +1,39 @@
+version: "3.9"
+
+services:
+  voiceagents:
+    build:
+      context: ./voiceagents
+    ports:
+      - "8000:8000"
+    environment:
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
+      - AGENT_ID=${AGENT_ID:-agent_5201khzcc407fhntbvdsabc0txr5}
+      - CASES_FILE=/app/data/verdict_cases.json
+      - CORS_ORIGINS=["http://localhost:5173","http://localhost:3000"]
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - voiceagents
+    restart: unless-stopped
+
+  agent:
+    build:
+      context: .
+      dockerfile: agents/Dockerfile
+    environment:
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
+      - AGENT_ID=${AGENT_ID:-agent_5201khzcc407fhntbvdsabc0txr5}
+    volumes:
+      - ./data:/app/data:ro
+    stdin_open: true
+    tty: true
+    profiles:
+      - cli
