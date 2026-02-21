@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .config import settings
 from .dependencies import get_case_store
 from .models import HealthResponse
-from .routers import cases, sessions, conversations
+from .routers import cases, sessions, conversations, analysis
 
 
 @asynccontextmanager
@@ -35,6 +35,7 @@ app.add_middleware(
 app.include_router(cases.router)
 app.include_router(sessions.router)
 app.include_router(conversations.router)
+app.include_router(analysis.router)
 
 
 @app.get("/api/health", response_model=HealthResponse, tags=["health"])

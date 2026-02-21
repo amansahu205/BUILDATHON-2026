@@ -1,0 +1,242 @@
+{
+  "cases": [
+    {
+      "case_name": "Antlantis v. Sal Tamontes",
+      "witnesses": [
+        {
+          "_meta": {
+            "witness_name": "Sal Tamontes",
+            "side": "Defense"
+          },
+          "variables": {
+            "case_name": "Antlantis v. Sal Tamontes",
+            "case_type": "Criminal – Theft (Antlantis Revised Code Statute 2913.02)",
+            "opposing_party": "The Crown of Antlantis (Prosecution)",
+            "deposition_date": "[FILL IN]",
+            "witness_name": "Sal Tamontes",
+            "witness_role": "Defendant",
+            "extracted_facts": "Sal Tamontes is a grasshopper who spent the summer singing instead of storing food. 235 morsels are missing from the ant colony pantry. A hole ~10 ants in diameter was found at the rear of the pantry, pointing directly toward Sal's den. Officer Myra found 4 morsels along the trail between the pantry and Sal's den. Sniffing aphids alerted along the trail and inside Sal's residence. Sal was observed to be plump despite having no visible food stores. Sal admits to asking the ants for fresh plant clippings earlier in the season and being refused. A squirrel nest exists beyond Sal's den along the same path that was not investigated. Grasshoppers typically do not survive winter, making Sal an unusual outlier.",
+            "prior_statements": "Sal said to Ari Ameise: 'You will live to regret denying my pleas for help! Karma finds a way!' Sal claims this was not a threat but a philosophical observation. Sal states grasshoppers do not eat stored ant food, preferring fresh tender shoots, clovers, and leaves. Sal denies all theft.",
+            "exhibit_list": "Exhibit A: Certification of Food Storage (ant colony audit). Colony food tally vs. current stores showing 235 morsel discrepancy. Officer Myra's investigation report (hole in pantry, 4 morsels on trail). Sniffing aphid alert log. Aby Ha's independent audit review identifying mathematical errors and unit inconsistencies. Guy Mi testimony on potential princess egg rearing.",
+            "focus_areas": "Timeline, Actions, Prior Statements, Relationships",
+            "aggression_level": "[CHOOSE: Standard | Elevated | High-Stakes]"
+          }
+        },
+        {
+          "_meta": {
+            "witness_name": "Ari Ameise",
+            "side": "Prosecution"
+          },
+          "variables": {
+            "case_name": "Antlantis v. Sal Tamontes",
+            "case_type": "Criminal – Theft (Antlantis Revised Code Statute 2913.02)",
+            "opposing_party": "Sal Tamontes (Defendant)",
+            "deposition_date": "[FILL IN]",
+            "witness_name": "Ari Ameise",
+            "witness_role": "Prosecution Fact Witness (Food Supply Monitor)",
+            "extracted_facts": "Ari is a nearly two-year-old worker ant primarily responsible for gathering and monitoring food supplies. Ari personally calculated the colony's food consumption, accounting for brood size and the queen's egg-laying rate. Ari warned Sal multiple times during summer that winter was coming. When Sal asked for food and was refused, Sal made a threatening remark about karma. Ari later noticed food was dwindling faster than calculations predicted. Ari visited Sal's den and found Sal surprisingly plump despite having no visible food stores. Ari reported suspicions to Queen Formiga, triggering the investigation.",
+            "prior_statements": "Ari told Sal 'no' when Sal requested food. Sal responded: 'You will live to regret denying my pleas for help! Karma finds a way!' Ari reported suspicions to Queen Formiga based on Sal's appearance and the food shortage.",
+            "exhibit_list": "Exhibit A: Certification of Food Storage. Colony food consumption calculations. Brood size and queen egg-laying records. Food tally compiled at end of harvest season.",
+            "focus_areas": "Timeline, Actions, Relationships, Prior Statements",
+            "aggression_level": "[CHOOSE: Standard | Elevated | High-Stakes]"
+          }
+        },
+        {
+          "_meta": {
+            "witness_name": "Queen Formiga",
+            "side": "Prosecution"
+          },
+          "variables": {
+            "case_name": "Antlantis v. Sal Tamontes",
+            "case_type": "Criminal – Theft (Antlantis Revised Code Statute 2913.02)",
+            "opposing_party": "Sal Tamontes (Defendant)",
+            "deposition_date": "[FILL IN]",
+            "witness_name": "Queen Formiga",
+            "witness_role": "Prosecution Witness (Sovereign of Antlantis)",
+            "extracted_facts": "Queen Formiga has ruled Antlantis for 17 years. She personally conducted a full audit of food stores after Ari Ameise's report. Every morsel was counted and compared to the end-of-harvest tally. The audit confirmed 235 morsels are missing. She states the tally has never been wrong in colony history. She acknowledges there could be other explanations but considers theft the most likely given the evidence.",
+            "prior_statements": "Queen Formiga granted Officer Myra full royal authority to investigate. Queen Formiga personally oversaw every morsel counted in the audit. On record: 235 morsels determined missing.",
+            "exhibit_list": "Exhibit A: Certification of Food Storage. Personal audit overseen by Queen Formiga. Historical colony food tallies for comparison. Officer Myra's investigation authorization.",
+            "focus_areas": "Timeline, Actions, Financial (morsel count)",
+            "aggression_level": "[CHOOSE: Standard | Elevated | High-Stakes]"
+          }
+        },
+        {
+          "_meta": {
+            "witness_name": "Officer Myra",
+            "side": "Prosecution"
+          },
+          "variables": {
+            "case_name": "Antlantis v. Sal Tamontes",
+            "case_type": "Criminal – Theft (Antlantis Revised Code Statute 2913.02)",
+            "opposing_party": "Sal Tamontes (Defendant)",
+            "deposition_date": "[FILL IN]",
+            "witness_name": "Officer Myra",
+            "witness_role": "Prosecution Witness (Senior Queen's Guard, Lead Investigator)",
+            "extracted_facts": "Officer Myra is 3 years old, the oldest and most experienced officer in the Queen's Guard with 20+ investigations. Myra found a large opening (~10 ants in diameter) at the rear of the pantry pointing unobstructed toward Sal's den. Myra found 4 morsels along the trail, the last 100 ants' distance from Sal's residence. A search warrant was obtained from Queen Formiga. Sniffing aphids alerted at multiple locations along the path and inside Sal's den. Myra concluded Sal had been stealing food for several weeks and consuming it at their residence.",
+            "prior_statements": "Myra's investigation report filed with Queen Formiga. Myra testified the investigation was 'pretty open and shut.' Warrant obtained before entering Sal's residence.",
+            "exhibit_list": "Investigation report. Pantry hole documentation. Morsel trail evidence (4 morsels found). Sniffing aphid alert log. Search warrant from Queen Formiga.",
+            "focus_areas": "Timeline, Actions, Prior Statements",
+            "aggression_level": "[CHOOSE: Standard | Elevated | High-Stakes]"
+          }
+        },
+        {
+          "_meta": {
+            "witness_name": "Guy Mi",
+            "side": "Defense"
+          },
+          "variables": {
+            "case_name": "Antlantis v. Sal Tamontes",
+            "case_type": "Criminal – Theft (Antlantis Revised Code Statute 2913.02)",
+            "opposing_party": "The Crown of Antlantis (Prosecution)",
+            "deposition_date": "[FILL IN]",
+            "witness_name": "Guy Mi",
+            "witness_role": "Defense Fact Witness (Brood Tender)",
+            "extracted_facts": "Guy Mi is a brood tender responsible for rearing the colony's young. He claims Queen Formiga has sloppy egg-laying habits and inaccurate counts, requiring daily corrections. Guy alleges that disgruntled brood tenders may have secretly been rearing princess eggs, which require significantly more food to develop. If princess eggs were being reared in secret, food consumption calculations would all be off. Guy Mi acknowledges this is a sensitive claim and that he is 'risking his thorax' to say it.",
+            "prior_statements": "Guy Mi has not made prior sworn statements. His testimony introduces an alternative explanation for the food shortage that does not involve Sal Tamontes.",
+            "exhibit_list": "No exhibits directly linked. Brood rearing records. Colony egg-laying logs from Queen Formiga.",
+            "focus_areas": "Actions, Relationships, Financial (food consumption discrepancy)",
+            "aggression_level": "[CHOOSE: Standard | Elevated | High-Stakes]"
+          }
+        },
+        {
+          "_meta": {
+            "witness_name": "Aby Ha",
+            "side": "Defense"
+          },
+          "variables": {
+            "case_name": "Antlantis v. Sal Tamontes",
+            "case_type": "Criminal – Theft (Antlantis Revised Code Statute 2913.02)",
+            "opposing_party": "The Crown of Antlantis (Prosecution)",
+            "deposition_date": "[FILL IN]",
+            "witness_name": "Aby Ha",
+            "witness_role": "Defense Expert Witness (Bee Colony Food Storage Expert)",
+            "extracted_facts": "Aby Ha is an 80-day-old worker bee from a hive 30 seconds' flight from Antlantis. Aby is responsible for maintaining her hive's food stores. Aby reviewed the ant colony's audit and found multiple mathematical errors and incomprehensible sections. The audit uses inconsistent units — 'morsel,' 'seed,' and 'piece' — with no conversion guide provided. If 'seed' and 'piece' are one-to-one with 'morsel,' the math is off by ~24 days. If they are different sizes, the math becomes entirely unreliable. Aby concludes the audit is not precise enough to determine an exact missing amount.",
+            "prior_statements": "Aby Ha reviewed Exhibit A (Certification of Food Storage) prior to testimony. No prior sworn statements on record.",
+            "exhibit_list": "Exhibit A: Certification of Food Storage (reviewed and critiqued by Aby Ha). Aby Ha's independent analysis notes.",
+            "focus_areas": "Financial (audit accuracy), Actions",
+            "aggression_level": "[CHOOSE: Standard | Elevated | High-Stakes]"
+          }
+        }
+      ]
+    },
+    {
+      "case_name": "State of Buckeye v. Micah Opessa",
+      "witnesses": [
+        {
+          "_meta": {
+            "witness_name": "Micah Opessa",
+            "side": "Defense"
+          },
+          "variables": {
+            "case_name": "State of Buckeye v. Micah Opessa",
+            "case_type": "Criminal – Motion to Withdraw Guilty Plea (Manifest Injustice / Brady Violation)",
+            "opposing_party": "State of Buckeye (Prosecution)",
+            "deposition_date": "January 22, 2021",
+            "witness_name": "Micah Opessa",
+            "witness_role": "Defendant",
+            "extracted_facts": "Micah pleaded guilty to voluntary manslaughter on October 15, 2019 in the death of Haumea Robins and was sentenced to 5 years in prison. Micah has always maintained their innocence. Micah and Robins were childhood friends who had a falling out when Robins began dating Scout Firat after Micah developed unrequited romantic feelings. Micah was overheard shouting threats and sent hostile text messages to Robins before the murder. Eyewitness Corey Abrams identified Micah in a photo lineup on September 10 but recanted on October 6. Prosecutor Okafor never disclosed the recantation to defense counsel. Micah accepted the plea deal fearing conviction on aggravated murder (30 years). Micah had a prior forgery conviction (fake ID, 2019). Micah agreed to meet Robins downtown on August 31, 2019.",
+            "prior_statements": "Plea entered October 15, 2019 — on the record, voluntary and knowing per the court. During fight with Robins: 'You're gonna pay for treating me like this!' Threatening text messages sent to Robins prior to murder. Micah maintains they did not commit the crime.",
+            "exhibit_list": "Plea agreement (Oct 15, 2019). Charging document: aggravated murder (Sept 11, 2019). Partial fingerprint report (7-point match). Size 9 Converse shoeprint analysis. Blue nylon fiber lab report. Threatening texts and social media posts. Prior forgery conviction record. Corey Abrams recantation letter to defense counsel (Sept 10, 2020).",
+            "focus_areas": "Timeline, Prior Statements, Relationships, Actions",
+            "aggression_level": "[CHOOSE: Standard | Elevated | High-Stakes]"
+          }
+        },
+        {
+          "_meta": {
+            "witness_name": "Charlie Nguyen",
+            "side": "Defense"
+          },
+          "variables": {
+            "case_name": "State of Buckeye v. Micah Opessa",
+            "case_type": "Criminal – Motion to Withdraw Guilty Plea (Manifest Injustice / Brady Violation)",
+            "opposing_party": "State of Buckeye (Prosecution)",
+            "deposition_date": "January 22, 2021",
+            "witness_name": "Charlie Nguyen",
+            "witness_role": "Defense Expert Witness (Forensic Evidence)",
+            "extracted_facts": "Fingerprint match had only 7 points of similarity; the accepted minimum standard is 12. No second examiner verified the fingerprint report — a critical missing step. Shoeprint photographs may not have been taken at a proper 90-degree angle, making the size 9 determination unreliable. Converse size 9 shoes are among the most common in Harmony. Blue nylon fibers are consistent with countless common garments. None of the physical evidence can establish when it was deposited at the scene. The fingerprint on Robins' glasses could have been left weeks before the murder.",
+            "prior_statements": "Charlie's expert report submitted to defense counsel prior to hearing. No prior sworn statements on record in this case.",
+            "exhibit_list": "Fingerprint comparison report. Shoeprint photographs and lab analysis. Blue nylon fiber lab report. Charlie's expert CV and credentials.",
+            "focus_areas": "Actions, Timeline",
+            "aggression_level": "[CHOOSE: Standard | Elevated | High-Stakes]"
+          }
+        },
+        {
+          "_meta": {
+            "witness_name": "Corey Abrams",
+            "side": "Defense"
+          },
+          "variables": {
+            "case_name": "State of Buckeye v. Micah Opessa",
+            "case_type": "Criminal – Motion to Withdraw Guilty Plea (Manifest Injustice / Brady Violation)",
+            "opposing_party": "State of Buckeye (Prosecution)",
+            "deposition_date": "January 22, 2021",
+            "witness_name": "Corey Abrams",
+            "witness_role": "Defense Eyewitness",
+            "extracted_facts": "On August 31, 2019 at approximately 8:30 PM, Corey saw someone fleeing the scene wearing a blue bomber jacket and holding a gun. It was dark; view was a side profile at ~20 yards for ~10 seconds. The person briefly looked Corey's way. Corey called 911 and spoke to Detective Foley. Photo lineup was conducted September 10 — 10 days later — after Corey returned from a food truck convention in Chicago. Corey selected Micah's photo but expressed uncertainty; Detective Foley seemed relieved and reassured Corey. On October 6, Corey saw Micah on the news and realized the real person was taller and bigger — they believe Micah's face seemed familiar because Micah had been ordering at a nearby food truck that evening. Corey called Detective Foley to recant on October 6. Corey also submitted a written statement to the Cardinal County Prosecutor's Office on October 8. No follow-up from the prosecutor. Micah was still convicted. Corey sent a letter to defense counsel on September 10, 2020. Defense investigator reportedly called Corey in October 2019 but Corey did not answer (unfamiliar number).",
+            "prior_statements": "September 10, 2019: Identified Micah in photo lineup — expressed uncertainty at time. October 6, 2019: Called Detective Foley — 'I've seen this kid on the news. That is not who I saw! They look so different from that photo.' October 8, 2019: Submitted written recantation to prosecutor's office. September 10, 2020: Wrote letter to defense counsel explaining full account.",
+            "exhibit_list": "Photo lineup (Sept 10, 2019). 911 call record (Aug 31, 2019). Corey's written recantation statement submitted to prosecutor's office (Oct 8). Letter to defense counsel (Sept 10, 2020). Detective Foley call log (Oct 6, 2019).",
+            "focus_areas": "Timeline, Prior Statements, Actions",
+            "aggression_level": "[CHOOSE: Standard | Elevated | High-Stakes]"
+          }
+        },
+        {
+          "_meta": {
+            "witness_name": "Justice Okafor",
+            "side": "Prosecution"
+          },
+          "variables": {
+            "case_name": "State of Buckeye v. Micah Opessa",
+            "case_type": "Criminal – Motion to Withdraw Guilty Plea (Manifest Injustice / Brady Violation)",
+            "opposing_party": "Micah Opessa (Defendant)",
+            "deposition_date": "January 22, 2021",
+            "witness_name": "Justice Okafor",
+            "witness_role": "Prosecution Witness (Assistant County Prosecutor, Cardinal County)",
+            "extracted_facts": "Justice Okafor graduated from Buckeye State DeHaan School of Law in 2010 and has been a prosecutor ever since. Okafor handled Micah's case. On September 20, 2019, Okafor offered first plea: 2nd degree murder / 30 years — Micah refused. Trial was set for October 7. On October 6, Detective Foley verbally told Okafor in a courthouse hallway that Corey Abrams had 'reservations' about their identification. On October 7, Okafor offered a new plea deal: manslaughter / 5 years. Okafor did not disclose Abrams' recantation to defense counsel before the plea was entered. Okafor's position: Abrams' reservations were not material Brady evidence. Abrams also submitted a written statement to the prosecutor's office that was noted in the case file.",
+            "prior_statements": "Told defense counsel on Sept 20 that the state was confident in their case. Did not disclose Abrams' recantation before offering the new plea on Oct 6-7. The written statement from Abrams was received by a law clerk and noted in the case file.",
+            "exhibit_list": "Plea deal records (Sept 20 and Oct 7). Abrams' written statement in case file. Courthouse hallway interaction with Detective Foley (no written record). Brady v. Maryland, 373 U.S. 83 (1963). Kyles v. Whitley, 514 U.S. 419 (1995). Boykin v. Alabama, 395 U.S. 238 (1969).",
+            "focus_areas": "Timeline, Communications, Prior Statements, Actions",
+            "aggression_level": "[CHOOSE: Standard | Elevated | High-Stakes]"
+          }
+        },
+        {
+          "_meta": {
+            "witness_name": "Kai Robins",
+            "side": "Prosecution"
+          },
+          "variables": {
+            "case_name": "State of Buckeye v. Micah Opessa",
+            "case_type": "Criminal – Motion to Withdraw Guilty Plea (Manifest Injustice / Brady Violation)",
+            "opposing_party": "Micah Opessa (Defendant)",
+            "deposition_date": "January 22, 2021",
+            "witness_name": "Kai Robins",
+            "witness_role": "Prosecution Fact Witness (Parent of Murder Victim Haumea Robins)",
+            "extracted_facts": "Kai Robins is the parent of murder victim Haumea Robins. Micah, Haumea, and Scout Firat were close friends throughout middle school and early high school. Micah developed a romantic interest in Haumea that was not reciprocated. Haumea began dating Scout Firat. This triggered a falling out between Micah and Haumea. During a confrontation at the Robins home, Micah was overheard shouting 'you're gonna pay for treating me like this!' and threw a heavy textbook. Threatening texts followed the confrontation. Haumea agreed to meet Micah downtown on August 31, 2019 at approximately 7 PM. Haumea was found dead less than two hours later.",
+            "prior_statements": "Provided statement to police during the original investigation. Testified about Micah's motive, threatening behavior, and the timeline of Haumea's meeting with Micah on August 31.",
+            "exhibit_list": "Threatening text messages from Micah to Haumea. Social media posts by Micah referencing betrayal and toughness. Witness statement to police.",
+            "focus_areas": "Relationships, Timeline, Prior Statements",
+            "aggression_level": "[CHOOSE: Standard | Elevated | High-Stakes]"
+          }
+        },
+        {
+          "_meta": {
+            "witness_name": "River Foley",
+            "side": "Prosecution"
+          },
+          "variables": {
+            "case_name": "State of Buckeye v. Micah Opessa",
+            "case_type": "Criminal – Motion to Withdraw Guilty Plea (Manifest Injustice / Brady Violation)",
+            "opposing_party": "Micah Opessa (Defendant)",
+            "deposition_date": "January 22, 2021",
+            "witness_name": "River Foley",
+            "witness_role": "Prosecution Witness (Lead Detective, Harmony Police Department)",
+            "extracted_facts": "Detective River Foley has 24+ years of experience, 300+ hours of training, a Master Evidence Technician Award (2002), and has worked 400+ cases including 4 months of advanced FBI forensic training. Foley conducted the initial interview with Corey Abrams on August 31. Waited 10 days to conduct the photo lineup because Abrams was at a convention in Chicago. Lineup conducted September 10 — Abrams expressed uncertainty but identified Micah; Foley reassured Abrams. Foley arrested Micah on September 11. On October 6, Foley received Abrams' recantation call. On October 7 (original trial date), Foley passed Okafor in a courthouse hallway and mentioned Abrams had 'reservations' — the exchange was brief and in passing. Foley did not file a written report on the recantation conversation.",
+            "prior_statements": "Initial interview with Abrams, August 31, 2019. Photo lineup administration, September 10, 2019 — reassured Abrams that identifying a photo was all they could do. Verbal communication to Okafor in courthouse hallway, October 7, 2019, re: Abrams' 'reservations.' No written record of the recantation disclosure to Okafor.",
+            "exhibit_list": "Initial witness interview report (Aug 31). Photo lineup documentation (Sept 10). Arrest report (Sept 11). Physical evidence reports: fingerprint, shoeprint, fibers. Call log from Abrams (Oct 6, 2019).",
+            "focus_areas": "Timeline, Actions, Prior Statements, Communications",
+            "aggression_level": "[CHOOSE: Standard | Elevated | High-Stakes]"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -20,6 +20,7 @@ async def create_session(body: SessionRequest):
     """Prepare a deposition session:
     1. Look up the case
     2. PATCH the ElevenLabs agent with the case-specific system prompt
+       (gracefully skipped if the API key lacks convai_write permission)
     3. Get a signed conversation token for the frontend
     """
     case = get_case_store().get(body.case_id)
@@ -34,17 +35,25 @@ async def create_session(body: SessionRequest):
     agent_id = settings.agent_id
     prompt = build_system_prompt(case)
 
+    prompt_patched = False
     try:
         await elevenlabs_service.patch_agent_prompt(
             agent_id=agent_id,
             system_prompt=prompt,
             first_message=FIRST_MESSAGE,
         )
+        prompt_patched = True
     except httpx.HTTPStatusError as exc:
-        raise HTTPException(
-            502,
-            f"Failed to patch ElevenLabs agent: {exc.response.status_code} — {exc.response.text}",
-        )
+        if exc.response.status_code == 401:
+            print(
+                f"Warning: API key lacks convai_write permission — "
+                f"skipping prompt patch. Agent will use its console-configured prompt."
+            )
+        else:
+            raise HTTPException(
+                502,
+                f"Failed to patch ElevenLabs agent: {exc.response.status_code} — {exc.response.text}",
+            )
 
     try:
         token = await elevenlabs_service.get_conversation_token(agent_id)
