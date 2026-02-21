@@ -4,7 +4,7 @@ from ..config import settings
 
 
 class ElevenLabsService:
-    """Async client for the ElevenLabs Conversational AI REST API."""
+    """Async client for the ElevenLabs Conversational AI + TTS APIs."""
 
     def __init__(self) -> None:
         self._base = settings.elevenlabs_base_url
@@ -13,47 +13,17 @@ class ElevenLabsService:
             "Content-Type": "application/json",
         }
 
-    def _client(self) -> httpx.AsyncClient:
+    def _client(self, timeout: float = 30.0) -> httpx.AsyncClient:
         return httpx.AsyncClient(
             base_url=self._base,
             headers=self._headers,
-            timeout=30.0,
+            timeout=timeout,
         )
-
-    # ── Agent prompt patching ────────────────────────────────────
-
-    async def patch_agent_prompt(
-        self,
-        agent_id: str,
-        system_prompt: str,
-        first_message: str | None = None,
-    ) -> dict:
-        """PATCH the agent's system prompt (and optionally first message)
-        so the next conversation uses case-specific context."""
-
-        body: dict = {
-            "conversation_config": {
-                "agent": {
-                    "prompt": {
-                        "prompt": system_prompt,
-                    },
-                },
-            },
-        }
-        if first_message is not None:
-            body["conversation_config"]["agent"]["first_message"] = first_message
-
-        async with self._client() as client:
-            resp = await client.patch(f"/convai/agents/{agent_id}", json=body)
-            resp.raise_for_status()
-            return resp.json()
 
     # ── Signed conversation token ────────────────────────────────
 
     async def get_conversation_token(self, agent_id: str) -> str:
-        """Get a short-lived signed URL / token the frontend can use
-        to start a WebRTC session without exposing the API key."""
-
+        """Get a short-lived signed URL the frontend uses to connect."""
         async with self._client() as client:
             resp = await client.get(
                 "/convai/conversation/get-signed-url",
@@ -61,6 +31,58 @@ class ElevenLabsService:
             )
             resp.raise_for_status()
             return resp.json()["signed_url"]
+
+    @staticmethod
+    def build_conversation_override(
+        system_prompt: str,
+        first_message: str | None = None,
+    ) -> dict:
+        """Build a conversation_config_override dict.
+
+        The frontend SDK passes this at connect time so the prompt is
+        scoped to THIS conversation only — no shared-agent mutation,
+        no race condition between concurrent sessions.
+        """
+        override: dict = {
+            "agent": {
+                "prompt": {"prompt": system_prompt},
+            },
+        }
+        if first_message is not None:
+            override["agent"]["first_message"] = first_message
+        return override
+
+    # ── Text-to-Speech (direct, non-conversational) ──────────────
+
+    async def text_to_speech(
+        self,
+        text: str,
+        voice_id: str | None = None,
+        model_id: str | None = None,
+        stability: float = 0.5,
+        similarity_boost: float = 0.75,
+    ) -> bytes:
+        """Generate speech audio from text using a specific voice.
+
+        Returns raw audio bytes (mpeg by default).
+        """
+        voice = voice_id or settings.coach_voice_id
+        model = model_id or settings.tts_model_id
+
+        async with self._client(timeout=60.0) as client:
+            resp = await client.post(
+                f"/text-to-speech/{voice}",
+                json={
+                    "text": text,
+                    "model_id": model,
+                    "voice_settings": {
+                        "stability": stability,
+                        "similarity_boost": similarity_boost,
+                    },
+                },
+            )
+            resp.raise_for_status()
+            return resp.content
 
     # ── Conversation history ─────────────────────────────────────
 

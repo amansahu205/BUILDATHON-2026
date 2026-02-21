@@ -224,6 +224,9 @@ credentials/
 .azure/
 gcloud/
 
+# Generated reports (PDF/audio)
+data/reports/
+
 # Keep example files
 !.env.example
 !docker-compose.yml

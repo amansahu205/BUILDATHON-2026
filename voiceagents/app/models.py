@@ -65,6 +65,7 @@ class SessionResponse(BaseModel):
     case_id: str
     case_name: str
     witness_name: str
+    conversation_config_override: dict | None = None
 
 
 class ConversationSummary(BaseModel):
@@ -83,6 +84,25 @@ class ConversationDetail(BaseModel):
     transcript: list[dict] = Field(default_factory=list)
     metadata: dict | None = None
     analysis: dict | None = None
+
+
+class ReportRequest(BaseModel):
+    """Request to generate a deposition report."""
+
+    conversation_id: str | None = None
+    case_id: str | None = None
+    transcript: str | None = None
+    witness_name: str | None = None
+    aggression_level: str | None = None
+
+
+class ReportSummary(BaseModel):
+    report_id: str
+    case_name: str
+    witness_name: str
+    overall_score: int
+    overall_rating: str
+    generated_at: str
 
 
 class HealthResponse(BaseModel):
