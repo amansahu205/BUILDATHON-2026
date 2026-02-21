@@ -277,6 +277,12 @@ After running `npx prisma db seed`:
 
 Built at **BUILDATHON 2026** — 48-hour hackathon
 
+| | Name | GitHub |
+|---|---|---|
+| 🧑‍💻 | Aman Sahu | [@amansahu205](https://github.com/amansahu205) |
+| 🧑‍💻 | Sukruth D | [@dsukruth](https://github.com/dsukruth) |
+| 🧑‍💻 | Nikhil Mulgir | [@nikhilmulgir1106](https://github.com/nikhilmulgir1106) |
+
 ---
 
 ## 📄 License
