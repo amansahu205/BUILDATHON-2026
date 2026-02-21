@@ -1,0 +1,484 @@
+/* ─── Case Selector ─────────────────────────────────────────────── */
+
+.case-selector {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 3rem 2rem;
+}
+
+.case-selector-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.logo-mark {
+  width: 48px;
+  height: 48px;
+  background: var(--accent);
+  color: #0a0a0f;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 1.5rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+}
+
+.case-selector-header h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.subtitle {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.instruction {
+  color: var(--text-secondary);
+  margin: 2rem 0 1.5rem;
+  font-size: 0.95rem;
+}
+
+.case-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1rem;
+}
+
+.case-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.25rem;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  font-family: inherit;
+  color: inherit;
+}
+
+.case-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), 0 8px 24px rgba(0, 0, 0, 0.3);
+  transform: translateY(-2px);
+}
+
+.case-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.aggression-badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  color: #0a0a0f;
+}
+
+.case-type-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.case-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.case-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.meta-row {
+  display: flex;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+}
+
+.meta-label {
+  color: var(--text-muted);
+  min-width: 60px;
+}
+
+.meta-value {
+  color: var(--text-secondary);
+}
+
+.case-focus {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.5;
+  border-top: 1px solid var(--border);
+  padding-top: 0.6rem;
+}
+
+/* ─── Deposition Session ────────────────────────────────────────── */
+
+.deposition-session {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.session-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
+}
+
+.back-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-family: inherit;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.back-btn:hover {
+  border-color: var(--text-muted);
+  color: var(--text-primary);
+}
+
+.session-title {
+  flex: 1;
+}
+
+.session-title h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.session-type {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.recording-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.8rem;
+  color: #ef4444;
+  font-weight: 500;
+}
+
+.rec-dot {
+  width: 8px;
+  height: 8px;
+  background: #ef4444;
+  border-radius: 50%;
+  animation: pulse-rec 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse-rec {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.session-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ─── Sidebar ───────────────────────────────────────────────────── */
+
+.case-sidebar {
+  width: 300px;
+  border-right: 1px solid var(--border);
+  padding: 1.25rem;
+  overflow-y: auto;
+  flex-shrink: 0;
+  background: var(--bg);
+}
+
+.sidebar-section {
+  margin-bottom: 1.5rem;
+}
+
+.sidebar-section h4 {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  margin: 0 0 0.5rem;
+}
+
+.witness-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 0.25rem;
+  font-size: 0.9rem;
+}
+
+.witness-role {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.aggression-meter {
+  height: 6px;
+  background: var(--surface);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 0.35rem;
+}
+
+.aggression-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s;
+}
+
+.aggression-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.focus-list,
+.exhibit-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.focus-list li,
+.exhibit-list li {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  padding-left: 0.8rem;
+  position: relative;
+}
+
+.focus-list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 4px;
+  height: 4px;
+  background: var(--accent);
+  border-radius: 50%;
+}
+
+.exhibit-list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 4px;
+  height: 4px;
+  background: var(--text-muted);
+  border-radius: 50%;
+}
+
+/* ─── Conversation Area ─────────────────────────────────────────── */
+
+.conversation-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.transcript {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.transcript-placeholder {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.transcript-placeholder p {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.transcript-entry {
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  max-width: 80%;
+}
+
+.transcript-entry.agent {
+  background: rgba(199, 163, 93, 0.08);
+  border: 1px solid rgba(199, 163, 93, 0.15);
+  align-self: flex-start;
+}
+
+.transcript-entry.witness {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  align-self: flex-end;
+}
+
+.entry-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.35rem;
+}
+
+.speaker-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.agent .speaker-label {
+  color: var(--accent);
+}
+
+.witness .speaker-label {
+  color: var(--text-muted);
+}
+
+.entry-time {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+}
+
+.entry-text {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: var(--text-primary);
+}
+
+/* ─── Footer ────────────────────────────────────────────────────── */
+
+.session-footer {
+  padding: 0.75rem 1.5rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--surface);
+  flex-shrink: 0;
+}
+
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--text-muted);
+  border-radius: 50%;
+  transition: background 0.2s;
+}
+
+.status-dot.connected {
+  background: #22c55e;
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.4);
+}
+
+.status-text {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.action-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #0a0a0f;
+  border: none;
+  padding: 0.5rem 1.25rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  font-family: inherit;
+  transition: opacity 0.15s;
+}
+
+.btn-primary:hover {
+  opacity: 0.85;
+}
+
+.btn-danger {
+  background: #ef4444;
+  color: white;
+  border: none;
+  padding: 0.5rem 1.25rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  font-family: inherit;
+  transition: opacity 0.15s;
+}
+
+.btn-danger:hover {
+  opacity: 0.85;
+}
+
+/* ─── Responsive ────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .case-sidebar {
+    display: none;
+  }
+
+  .transcript-entry {
+    max-width: 95%;
+  }
+
+  .case-grid {
+    grid-template-columns: 1fr;
+  }
+}
