@@ -282,6 +282,7 @@ Built at **BUILDATHON 2026** — 48-hour hackathon
 | 🧑‍💻 | Aman Sahu | [@amansahu205](https://github.com/amansahu205) |
 | 🧑‍💻 | Sukruth D | [@dsukruth](https://github.com/dsukruth) |
 | 🧑‍💻 | Nikhil Mulgir | [@nikhilmulgir1106](https://github.com/nikhilmulgir1106) |
+| 🧑‍💻 | Supriya Nagnath Kadam | [@skadam1199](https://github.com/skadam1199) |
 
 ---
 
