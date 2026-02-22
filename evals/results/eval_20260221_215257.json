@@ -1,0 +1,67 @@
+[
+  {
+    "scenario": "Transit negligence \u2014 hostile corporate witness with contradictory statements",
+    "case_id": "lyman_v_cctd",
+    "scores": {
+      "json_validity": 0.0,
+      "schema_completeness": 0.0,
+      "score_range_accuracy": 0.0,
+      "vulnerability_detection": 0.0,
+      "coaching_actionability": 0.0,
+      "contradiction_detection": 0.0
+    },
+    "output_preview": "```json\n{\n  \"analysis_rationale\": {\n    \"composure_reasoning\": \"Witness showed multiple stress indicators throughout brief questioning: [throat_clear] at opening, [sigh] twice when pressed on responsi..."
+  },
+  {
+    "scenario": "Securities fraud \u2014 defendant CEO with Slack evidence of direct fraud instruction",
+    "case_id": "utah_v_gunn",
+    "scores": {
+      "json_validity": 1.0,
+      "schema_completeness": 1.0,
+      "score_range_accuracy": 0.8,
+      "vulnerability_detection": 0.7,
+      "coaching_actionability": 0.7000000000000001,
+      "contradiction_detection": 0.0
+    },
+    "output_preview": "```json\n{\n  \"analysis_rationale\": {\n    \"composure_reasoning\": \"Witness exhibited multiple stress indicators including [long pause], [throat_clear], and [sigh] when confronted with damaging evidence. ..."
+  },
+  {
+    "scenario": "Friendly expert witness \u2014 should receive high scores across the board",
+    "case_id": "cooperative_witness",
+    "scores": {
+      "json_validity": 1.0,
+      "schema_completeness": 1.0,
+      "score_range_accuracy": 1.0,
+      "vulnerability_detection": 1.0,
+      "coaching_actionability": 0.44999999999999996,
+      "contradiction_detection": 0.3
+    },
+    "output_preview": "```json\n{\n  \"analysis_rationale\": {\n    \"composure_reasoning\": \"Witness maintained perfect vocal control throughout the brief deposition with zero behavioral tags indicating stress, nervousness, or ag..."
+  },
+  {
+    "scenario": "Extremely evasive witness using excessive hedging and recall failures",
+    "case_id": "evasive_witness",
+    "scores": {
+      "json_validity": 1.0,
+      "schema_completeness": 1.0,
+      "score_range_accuracy": 0.4,
+      "vulnerability_detection": 0.0,
+      "coaching_actionability": 0.44999999999999996,
+      "contradiction_detection": 1.0
+    },
+    "output_preview": "```json\n{\n  \"analysis_rationale\": {\n    \"composure_reasoning\": \"Witness shows multiple stress indicators including [pause], [throat_clear], [sigh], and [long pause]. These vocal changes demonstrate cl..."
+  },
+  {
+    "scenario": "Combative witness who argues, shows contempt, and breaks decorum",
+    "case_id": "hostile_combative",
+    "scores": {
+      "json_validity": 1.0,
+      "schema_completeness": 1.0,
+      "score_range_accuracy": 0.4,
+      "vulnerability_detection": 0.0,
+      "coaching_actionability": 0.65,
+      "contradiction_detection": 0.3
+    },
+    "output_preview": "```json\n{\n  \"analysis_rationale\": {\n    \"composure_reasoning\": \"Witness displayed severe composure breakdown throughout the deposition with multiple [scoff] and [laugh] tags, showing vocal agitation a..."
+  }
+]

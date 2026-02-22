@@ -1,0 +1,54 @@
+{
+  "report_id": "e46a8487-5e0",
+  "case_name": "Lyman v. Capital City Transit District",
+  "witness_name": "Mark Hensley",
+  "aggression_level": "Medium",
+  "analysis_method": "llm_claude",
+  "conversation_id": null,
+  "generated_at": "2026-02-21T22:34:08.693938+00:00",
+  "analysis_rationale": {
+    "composure_reasoning": "Witness showed multiple stress indicators including [sigh] (3 times), [nervous laugh], [nervous], and frequent [throat_clear] and [pause] tags, especially when confronted with Exhibit E. Lost composure completely when cornered about the email contradiction.",
+    "tactical_discipline_reasoning": "Witness fell into every trap - over-explained when asked simple yes/no questions, volunteered damaging information about 'many factors' and 'personal issues' when not asked, and failed to maintain silence during strategic pauses, instead filling dead air with rambling justifications.",
+    "professionalism_reasoning": "Generally maintained respectful tone but displayed [nervous laugh] when reading his own email, showed defensive behavior with phrases like 'incomplete characterization,' and became argumentative when trying to deflect responsibility to external factors.",
+    "directness_reasoning": "Initially evasive on enforcement responsibility question, required multiple attempts to get straight answers, gave one clear 'No' at the end but only after extensive evasion and deflection throughout the session.",
+    "consistency_reasoning": "Major contradiction exposed between January 5 email stating 'dangerously short' and later testimony claiming 'adequate staffing' - attempted weak rationalization about 'context' and 'managing' but could not reconcile the fundamental inconsistency in his statements."
+  },
+  "spider_chart_scores": {
+    "composure": 25,
+    "tactical_discipline": 15,
+    "professionalism": 45,
+    "directness": 30,
+    "consistency": 20
+  },
+  "critical_vulnerability": {
+    "interrogator_tactic_used": "Exhibit Confrontation with Strategic Document Trap",
+    "witness_reaction": "Witness showed [nervous laugh] when forced to read his own damaging email aloud, then displayed multiple [sigh] and [pause] tags when trapped between contradictory statements, ultimately attempting weak deflection with 'incomplete characterization'",
+    "trial_risk": "The jury will see him laughing nervously while reading his own words about 'dangerous' understaffing, then watch him squirm when confronted with his contradictory testimony - this destroys his credibility as the safety supervisor who knew of the danger but did nothing."
+  },
+  "coaching_directive": "When confronted with your own documents, read them in a neutral tone without any vocal reactions, acknowledge them factually, and resist all urges to explain or justify - let your attorney handle rehabilitation on redirect.",
+  "lawyer_brief": {
+    "case_name": "Lyman v. Capital City Transit District",
+    "witness_name": "Mark Hensley",
+    "interrogation_intensity": "Medium",
+    "overall_rating": "Weak",
+    "overall_score": 27,
+    "trial_readiness": "Witness is NOT trial-ready. Significant coaching required before any live testimony.",
+    "strongest_dimension": "Professionalism (45/100)",
+    "weakest_dimension": "Tactical Discipline (15/100)",
+    "primary_risk": "The jury will see him laughing nervously while reading his own words about 'dangerous' understaffing, then watch him squirm when confronted with his contradictory testimony - this destroys his credibility as the safety supervisor who knew of the danger but did nothing.",
+    "total_exchanges": 29,
+    "witness_responses": 14,
+    "priority_coaching_items": [
+      "When confronted with your own documents, read them in a neutral tone without any vocal reactions, acknowledge them factually, and resist all urges to explain or justify - let your attorney handle rehabilitation on redirect."
+    ],
+    "recommended_next_steps": [
+      "Schedule follow-up mock deposition focusing on tactical discipline",
+      "Review transcript highlights with witness before next session",
+      "Prepare witness for specific exhibit confrontations identified in this session"
+    ],
+    "generated_at": "2026-02-21T22:34:08.693792+00:00"
+  },
+  "coaching_suggestions": [
+    "When confronted with your own documents, read them in a neutral tone without any vocal reactions, acknowledge them factually, and resist all urges to explain or justify - let your attorney handle rehabilitation on redirect."
+  ]
+}

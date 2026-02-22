@@ -1,0 +1,156 @@
+[
+  {
+    "scenario": "Transit negligence \u2014 hostile corporate witness with contradictory statements",
+    "case_id": "lyman_v_cctd",
+    "scores": {
+      "json_validity": 1.0,
+      "schema_completeness": 1.0,
+      "score_range_accuracy": 0.8,
+      "vulnerability_detection": 0.7,
+      "coaching_actionability": 0.7000000000000001,
+      "contradiction_detection": 1.0,
+      "scarlet_metric": 0.9
+    },
+    "output_preview": "```json\n{\n  \"analysis_rationale\": {\n    \"composure_reasoning\": \"The witness shows clear signs of stress throughout the deposition with multiple vocal indicators: [sigh] appears twice, [nervous laugh] ..."
+  },
+  {
+    "scenario": "Securities fraud \u2014 defendant CEO with Slack evidence of direct fraud instruction",
+    "case_id": "utah_v_gunn",
+    "scores": {
+      "json_validity": 1.0,
+      "schema_completeness": 1.0,
+      "score_range_accuracy": 0.8,
+      "vulnerability_detection": 0.7,
+      "coaching_actionability": 0.65,
+      "contradiction_detection": 1.0,
+      "scarlet_metric": 1.0
+    },
+    "output_preview": "```json\n{\n  \"analysis_rationale\": {\n    \"composure_reasoning\": \"Witness displayed multiple stress indicators including [long pause], [throat_clear], and [sigh]. The behavioral tags show increasing voc..."
+  },
+  {
+    "scenario": "Friendly expert witness \u2014 should receive high scores across the board",
+    "case_id": "cooperative_witness",
+    "scores": {
+      "json_validity": 1.0,
+      "schema_completeness": 1.0,
+      "score_range_accuracy": 1.0,
+      "vulnerability_detection": 1.0,
+      "coaching_actionability": 0.55,
+      "contradiction_detection": 0.3,
+      "scarlet_metric": 0.9
+    },
+    "output_preview": "```json\n{\n  \"analysis_rationale\": {\n    \"composure_reasoning\": \"The witness maintained complete vocal stability throughout the deposition with no behavioral tags indicating stress, nervousness, or agi..."
+  },
+  {
+    "scenario": "Extremely evasive witness using excessive hedging and recall failures",
+    "case_id": "evasive_witness",
+    "scores": {
+      "json_validity": 1.0,
+      "schema_completeness": 1.0,
+      "score_range_accuracy": 0.6,
+      "vulnerability_detection": 0.0,
+      "coaching_actionability": 0.8,
+      "contradiction_detection": 1.0,
+      "scarlet_metric": 0.9
+    },
+    "output_preview": "```json\n{\n  \"analysis_rationale\": {\n    \"composure_reasoning\": \"The witness shows clear signs of stress through multiple vocal indicators: [pause], [throat_clear], [sigh], and [long pause]. These beha..."
+  },
+  {
+    "scenario": "Combative witness who argues, shows contempt, and breaks decorum",
+    "case_id": "hostile_combative",
+    "scores": {
+      "json_validity": 1.0,
+      "schema_completeness": 1.0,
+      "score_range_accuracy": 0.6,
+      "vulnerability_detection": 0.0,
+      "coaching_actionability": 0.7000000000000001,
+      "contradiction_detection": 1.0,
+      "scarlet_metric": 0.9
+    },
+    "output_preview": "```json\n{\n  \"analysis_rationale\": {\n    \"composure_reasoning\": \"The witness demonstrates severe composure failures throughout the deposition. Multiple instances of [scoff] and [laugh] tags indicate vo..."
+  },
+  {
+    "scenario": "Medical malpractice \u2014 surgeon who changed operative notes after adverse outcome",
+    "case_id": "martinez_v_metro_health",
+    "scores": {
+      "json_validity": 1.0,
+      "schema_completeness": 1.0,
+      "score_range_accuracy": 0.8,
+      "vulnerability_detection": 0.7,
+      "coaching_actionability": 0.7000000000000001,
+      "contradiction_detection": 1.0,
+      "scarlet_metric": 0.9
+    },
+    "output_preview": "```json\n{\n  \"analysis_rationale\": {\n    \"composure_reasoning\": \"Witness shows mounting stress through behavioral tags: [pause], [throat_clear], [long pause], and [sigh]. The progression from initial c..."
+  },
+  {
+    "scenario": "IP theft \u2014 former engineer accused of taking source code to competitor",
+    "case_id": "techcorp_v_exemployee",
+    "scores": {
+      "json_validity": 1.0,
+      "schema_completeness": 1.0,
+      "score_range_accuracy": 0.4,
+      "vulnerability_detection": 0.7,
+      "coaching_actionability": 0.8,
+      "contradiction_detection": 1.0,
+      "scarlet_metric": 0.9
+    },
+    "output_preview": "```json\n{\n  \"analysis_rationale\": {\n    \"composure_reasoning\": \"The witness shows clear signs of stress under pressure with [pause], [throat_clear], and [sigh] occurring at critical moments when confr..."
+  },
+  {
+    "scenario": "Employment discrimination \u2014 HR director who approved termination after FMLA leave",
+    "case_id": "henderson_v_premier_inc",
+    "scores": {
+      "json_validity": 1.0,
+      "schema_completeness": 1.0,
+      "score_range_accuracy": 0.6,
+      "vulnerability_detection": 0.7,
+      "coaching_actionability": 0.7000000000000001,
+      "contradiction_detection": 1.0,
+      "scarlet_metric": 0.8
+    },
+    "output_preview": "```json\n{\n  \"analysis_rationale\": {\n    \"composure_reasoning\": \"Witness maintained vocal control throughout most exchanges but showed stress markers with [pause], [throat_clear], and [long pause] when..."
+  },
+  {
+    "scenario": "Product liability \u2014 engineer who approved brake specs despite test failures",
+    "case_id": "davis_v_global_auto",
+    "scores": {
+      "json_validity": 1.0,
+      "schema_completeness": 1.0,
+      "score_range_accuracy": 0.6,
+      "vulnerability_detection": 0.7,
+      "coaching_actionability": 0.65,
+      "contradiction_detection": 1.0,
+      "scarlet_metric": 0.8
+    },
+    "output_preview": "```json\n{\n  \"analysis_rationale\": {\n    \"composure_reasoning\": \"Witness shows clear stress indicators with [throat_clear] when confronted about margin notes and [long pause] during the emotionally cha..."
+  },
+  {
+    "scenario": "Environmental violation \u2014 plant manager who denied knowledge of discharge",
+    "case_id": "state_v_riverdale_chemical",
+    "scores": {
+      "json_validity": 1.0,
+      "schema_completeness": 1.0,
+      "score_range_accuracy": 0.6,
+      "vulnerability_detection": 0.7,
+      "coaching_actionability": 0.9000000000000001,
+      "contradiction_detection": 1.0,
+      "scarlet_metric": 0.9
+    },
+    "output_preview": "```json\n{\n  \"analysis_rationale\": {\n    \"composure_reasoning\": \"The witness displayed multiple stress indicators including [pause], [throat_clear], [long pause], and [sigh] when confronted with specif..."
+  },
+  {
+    "scenario": "Calm, compliant witness \u2014 minimal risk, straightforward answers",
+    "case_id": "calm_compliant",
+    "scores": {
+      "json_validity": 1.0,
+      "schema_completeness": 1.0,
+      "score_range_accuracy": 1.0,
+      "vulnerability_detection": 1.0,
+      "coaching_actionability": 0.65,
+      "contradiction_detection": 0.3,
+      "scarlet_metric": 0.9
+    },
+    "output_preview": "```json\n{\n  \"analysis_rationale\": {\n    \"composure_reasoning\": \"Witness maintained completely calm demeanor throughout with zero behavioral tags indicating stress, anxiety, or agitation. No vocal chan..."
+  }
+]

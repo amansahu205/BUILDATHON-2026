@@ -1,0 +1,17 @@
+[
+  {
+    "scenario": "Friendly expert witness \u2014 should receive high scores across the board",
+    "case_id": "cooperative_witness",
+    "scores": {
+      "scarlet_metric": 0.8,
+      "json_validity": 1.0,
+      "schema_completeness": 1.0,
+      "score_range_accuracy": 1.0,
+      "vulnerability_detection": 1.0,
+      "coaching_actionability": 0.55,
+      "contradiction_detection": 0.3
+    },
+    "scarlet_metric": 0.8,
+    "output_preview": "```json\n{\n  \"analysis_rationale\": {\n    \"composure_reasoning\": \"Dr. Patel maintained perfect vocal control throughout the deposition with zero behavioral tags indicating stress, nervousness, or agitation. No pauses, sighs, nervous laughs, or other vocal indicators of being rattled by questioning.\",\n..."
+  }
+]

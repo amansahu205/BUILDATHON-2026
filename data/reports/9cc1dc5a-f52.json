@@ -1,0 +1,54 @@
+{
+  "report_id": "9cc1dc5a-f52",
+  "case_name": "Lyman v. Capital City Transit District",
+  "witness_name": "Mark Hensley",
+  "aggression_level": "Medium",
+  "analysis_method": "rule_based",
+  "conversation_id": null,
+  "generated_at": "2026-02-21T22:21:31.290620+00:00",
+  "analysis_rationale": {
+    "composure_reasoning": "7 stress-indicating behavioral tags detected (throat_clear=2, pause=4, sigh=3, long pause=3, nervous laugh=1, nervous=1). Witness showed visible agitation under pressure. Aggression context: Medium.",
+    "tactical_discipline_reasoning": "Average witness response: 9 words. 0 responses exceeded 30 words (over-explaining). 6 concise responses (<=5 words). Witness showed adequate restraint.",
+    "professionalism_reasoning": "0 inappropriate vocal reactions (laugh/scoff). 0 sarcastic or dismissive phrases detected. Witness maintained professional demeanor.",
+    "directness_reasoning": "'I don't recall' used 0 time(s). 0 hedging phrases (I think, maybe, perhaps). Witness was reasonably direct in responses.",
+    "consistency_reasoning": "0 contradiction/inconsistency signals detected in witness testimony. Pause frequency increased during later questioning \u2014 possible fatigue or anxiety."
+  },
+  "spider_chart_scores": {
+    "composure": 50,
+    "tactical_discipline": 90,
+    "professionalism": 90,
+    "directness": 95,
+    "consistency": 75
+  },
+  "critical_vulnerability": {
+    "interrogator_tactic_used": "Exhibit Confrontation / Pressure Escalation",
+    "witness_reaction": "Witness displayed 7 stress indicators when confronted with evidence",
+    "trial_risk": "Jury will perceive witness as unreliable and hiding information when visibly nervous under routine questioning"
+  },
+  "coaching_directive": "Practice controlled breathing before answering \u2014 inhale for 3 counts after each question to eliminate reactive stress signals.",
+  "coaching_suggestions": [
+    "Practice controlled breathing before answering \u2014 inhale for 3 counts after each question to eliminate reactive stress signals."
+  ],
+  "lawyer_brief": {
+    "case_name": "Lyman v. Capital City Transit District",
+    "witness_name": "Mark Hensley",
+    "interrogation_intensity": "Medium",
+    "overall_rating": "Strong",
+    "overall_score": 80,
+    "trial_readiness": "Witness is near trial-ready with minor refinements needed.",
+    "strongest_dimension": "Directness (95/100)",
+    "weakest_dimension": "Composure (50/100)",
+    "primary_risk": "Jury will perceive witness as unreliable and hiding information when visibly nervous under routine questioning",
+    "total_exchanges": 29,
+    "witness_responses": 14,
+    "priority_coaching_items": [
+      "Practice controlled breathing before answering \u2014 inhale for 3 counts after each question to eliminate reactive stress signals."
+    ],
+    "recommended_next_steps": [
+      "Schedule follow-up mock deposition focusing on composure",
+      "Review transcript highlights with witness before next session",
+      "Prepare witness for specific exhibit confrontations identified in this session"
+    ],
+    "generated_at": "2026-02-21T22:21:31.290333+00:00"
+  }
+}

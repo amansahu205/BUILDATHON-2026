@@ -1,0 +1,15 @@
+[
+  {
+    "scenario": "Transit negligence \u2014 hostile corporate witness with contradictory statements",
+    "case_id": "lyman_v_cctd",
+    "scores": {
+      "json_validity": 1.0,
+      "schema_completeness": 1.0,
+      "score_range_accuracy": 0.8,
+      "vulnerability_detection": 0.7,
+      "coaching_actionability": 0.9000000000000001,
+      "contradiction_detection": 1.0
+    },
+    "output_preview": "```json\n{\n  \"analysis_rationale\": {\n    \"composure_reasoning\": \"Witness displayed multiple stress indicators throughout the brief exchange: [throat_clear] at opening, [sigh] when pressed on responsibi..."
+  }
+]

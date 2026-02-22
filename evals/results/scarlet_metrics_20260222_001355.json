@@ -1,0 +1,77 @@
+[
+  {
+    "scenario": "Transit negligence \u2014 hostile corporate witness with contradictory statements",
+    "case_id": "lyman_v_cctd",
+    "scores": {
+      "scarlet_metric": 0.9,
+      "json_validity": 1.0,
+      "schema_completeness": 1.0,
+      "score_range_accuracy": 0.8,
+      "vulnerability_detection": 0.7,
+      "coaching_actionability": 0.7500000000000001,
+      "contradiction_detection": 1.0
+    },
+    "scarlet_metric": 0.9,
+    "output_preview": "```json\n{\n  \"analysis_rationale\": {\n    \"composure_reasoning\": \"Witness showed multiple stress indicators including [sigh] appearing twice, [nervous laugh], and [throat_clear] occurring twice. These vocal manifestations of discomfort under questioning demonstrate poor emotional regulation when confr..."
+  },
+  {
+    "scenario": "Securities fraud \u2014 defendant CEO with Slack evidence of direct fraud instruction",
+    "case_id": "utah_v_gunn",
+    "scores": {
+      "scarlet_metric": 0.9,
+      "json_validity": 1.0,
+      "schema_completeness": 1.0,
+      "score_range_accuracy": 0.8,
+      "vulnerability_detection": 0.7,
+      "coaching_actionability": 0.55,
+      "contradiction_detection": 0.0
+    },
+    "scarlet_metric": 0.9,
+    "output_preview": "```json\n{\n  \"analysis_rationale\": {\n    \"composure_reasoning\": \"Witness exhibited multiple stress indicators including [long pause], [throat_clear], and [sigh]. The progressive deterioration from initial confidence to visible stress under pressure demonstrates poor composure management. The final [s..."
+  },
+  {
+    "scenario": "Friendly expert witness \u2014 should receive high scores across the board",
+    "case_id": "cooperative_witness",
+    "scores": {
+      "scarlet_metric": 0.8,
+      "json_validity": 1.0,
+      "schema_completeness": 1.0,
+      "score_range_accuracy": 1.0,
+      "vulnerability_detection": 1.0,
+      "coaching_actionability": 0.44999999999999996,
+      "contradiction_detection": 0.3
+    },
+    "scarlet_metric": 0.8,
+    "output_preview": "```json\n{\n  \"analysis_rationale\": {\n    \"composure_reasoning\": \"Witness maintained complete vocal control throughout the deposition with zero behavioral tags indicating stress, nervousness, or agitation. No sighs, pauses, throat clearing, or other indicators of being rattled by questioning.\",\n    \"t..."
+  },
+  {
+    "scenario": "Extremely evasive witness using excessive hedging and recall failures",
+    "case_id": "evasive_witness",
+    "scores": {
+      "scarlet_metric": 0.9,
+      "json_validity": 1.0,
+      "schema_completeness": 1.0,
+      "score_range_accuracy": 0.4,
+      "vulnerability_detection": 0.7,
+      "coaching_actionability": 0.7000000000000001,
+      "contradiction_detection": 1.0
+    },
+    "scarlet_metric": 0.9,
+    "output_preview": "```json\n{\n  \"analysis_rationale\": {\n    \"composure_reasoning\": \"Witness shows clear vocal stress indicators including [pause], [throat_clear], [sigh], and [long pause]. These behavioral tags demonstrate deteriorating composure under medium pressure questioning, particularly when confronted with cont..."
+  },
+  {
+    "scenario": "Combative witness who argues, shows contempt, and breaks decorum",
+    "case_id": "hostile_combative",
+    "scores": {
+      "scarlet_metric": 0.9,
+      "json_validity": 1.0,
+      "schema_completeness": 1.0,
+      "score_range_accuracy": 0.4,
+      "vulnerability_detection": 0.0,
+      "coaching_actionability": 0.7000000000000001,
+      "contradiction_detection": 1.0
+    },
+    "scarlet_metric": 0.9,
+    "output_preview": "```json\n{\n  \"analysis_rationale\": {\n    \"composure_reasoning\": \"Witness demonstrates complete lack of composure from the opening question, displaying irritation ('You already know my name. This is ridiculous'), multiple scoffs, and dismissive laughter throughout. Shows escalating agitation rather th..."
+  }
+]

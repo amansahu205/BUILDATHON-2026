@@ -1,0 +1,54 @@
+{
+  "report_id": "dd77510a-e00",
+  "case_name": "Lyman v. Capital City Transit District",
+  "witness_name": "Mark Hensley",
+  "aggression_level": "Medium",
+  "analysis_method": "llm_claude",
+  "conversation_id": null,
+  "generated_at": "2026-02-21T22:28:51.341009+00:00",
+  "analysis_rationale": {
+    "composure_reasoning": "Witness showed significant stress markers throughout, including multiple [sigh] responses, [nervous laugh] when confronted with Exhibit E, and [nervous] tag during evasive explanation. Vocal deterioration was particularly evident when faced with the contradiction between his email and review board statement.",
+    "tactical_discipline_reasoning": "Failed repeatedly to give concise answers, especially during the 'What did you do in those seven days' question where he rambled about raising it with HR. Filled strategic silence with defensive explanations rather than staying quiet. Over-explained when trapped about his contradictory statements.",
+    "professionalism_reasoning": "Generally maintained respectful tone and avoided argumentative language. No instances of [scoff] or sarcasm. However, the [nervous laugh] when reading his own email and defensive tone during explanations showed some unprofessional responses under pressure.",
+    "directness_reasoning": "Consistently evasive on key questions. Required repeated questioning to get basic admissions ('Are you responsible for enforcing it?'). Used qualifying language like 'among other things' and 'incomplete characterization' to avoid direct answers. Forced interrogator to rephrase the shift cap enforcement question.",
+    "consistency_reasoning": "Major contradiction exposed between January 5 email ('dangerously short') and review board statement ('adequate staffing'). Attempted to rationalize with 'context is different' but failed to maintain coherent narrative. Final admission of taking no concrete action directly contradicted earlier implications of proactive management."
+  },
+  "spider_chart_scores": {
+    "composure": 25,
+    "tactical_discipline": 20,
+    "professionalism": 65,
+    "directness": 30,
+    "consistency": 15
+  },
+  "critical_vulnerability": {
+    "interrogator_tactic_used": "Exhibit Confrontation with Strategic Looping",
+    "witness_reaction": "When confronted with Exhibit E and forced to read his own contradictory email aloud, witness displayed [nervous laugh] followed by multiple [pause] and [sigh] markers, then attempted lengthy defensive explanation that only highlighted the contradiction further",
+    "trial_risk": "Jury will see him literally laughing nervously while reading his own words about 'dangerous' staffing, then hear him claim it was 'adequate' - this visual and audio contradiction will be devastating evidence of corporate cover-up and personal dishonesty"
+  },
+  "coaching_directive": "When confronted with your own documents, read them neutrally without vocal reactions, acknowledge them as your words, and stop talking immediately rather than attempting to explain away obvious contradictions.",
+  "lawyer_brief": {
+    "case_name": "Lyman v. Capital City Transit District",
+    "witness_name": "Mark Hensley",
+    "interrogation_intensity": "Medium",
+    "overall_rating": "Weak",
+    "overall_score": 31,
+    "trial_readiness": "Witness is NOT trial-ready. Significant coaching required before any live testimony.",
+    "strongest_dimension": "Professionalism (65/100)",
+    "weakest_dimension": "Consistency (15/100)",
+    "primary_risk": "Jury will see him literally laughing nervously while reading his own words about 'dangerous' staffing, then hear him claim it was 'adequate' - this visual and audio contradiction will be devastating evidence of corporate cover-up and personal dishonesty",
+    "total_exchanges": 29,
+    "witness_responses": 14,
+    "priority_coaching_items": [
+      "When confronted with your own documents, read them neutrally without vocal reactions, acknowledge them as your words, and stop talking immediately rather than attempting to explain away obvious contradictions."
+    ],
+    "recommended_next_steps": [
+      "Schedule follow-up mock deposition focusing on consistency",
+      "Review transcript highlights with witness before next session",
+      "Prepare witness for specific exhibit confrontations identified in this session"
+    ],
+    "generated_at": "2026-02-21T22:28:51.340884+00:00"
+  },
+  "coaching_suggestions": [
+    "When confronted with your own documents, read them neutrally without vocal reactions, acknowledge them as your words, and stop talking immediately rather than attempting to explain away obvious contradictions."
+  ]
+}
