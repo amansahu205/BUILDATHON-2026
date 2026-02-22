@@ -34,9 +34,24 @@ async def analyze_for_objections(question_text: str, session_id: str) -> dict:
         prompt += f"\n\nRelevant FRE rules:\n{fre_context}"
 
     raw = await claude_chat(OBJECTION_SYSTEM, prompt, max_tokens=256)
+    # Strip markdown code fences if Claude wrapped the JSON
+    cleaned = raw.strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.split("```")[1]
+        if cleaned.startswith("json"):
+            cleaned = cleaned[4:]
+        cleaned = cleaned.strip()
     try:
-        return json.loads(raw)
+        return json.loads(cleaned)
     except json.JSONDecodeError:
+        # Last-ditch: find the first { ... } block
+        import re
+        m = re.search(r"\{.*\}", cleaned, re.DOTALL)
+        if m:
+            try:
+                return json.loads(m.group())
+            except json.JSONDecodeError:
+                pass
         return {
             "isObjectionable": False,
             "category": None,
