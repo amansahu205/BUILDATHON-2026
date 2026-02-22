@@ -3,6 +3,8 @@ from typing import Optional
 
 
 class CreateSessionRequest(BaseModel):
+    caseId: str
+    witnessId: str
     durationMinutes: int
     focusAreas: list[str]
     aggression: str = "STANDARD"

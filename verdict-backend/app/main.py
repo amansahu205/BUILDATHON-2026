@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from app.database import engine, AsyncSessionLocal
-from app.routers import auth, cases, sessions, briefs
+from app.routers import auth, cases, sessions, briefs, documents, witnesses
 from app.config import settings
 
 
@@ -31,6 +31,8 @@ app.include_router(auth.router,     prefix="/api/v1/auth")
 app.include_router(cases.router,    prefix="/api/v1/cases")
 app.include_router(sessions.router, prefix="/api/v1/sessions")
 app.include_router(briefs.router,   prefix="/api/v1/briefs")
+app.include_router(documents.router, prefix="/api/v1")
+app.include_router(witnesses.router, prefix="/api/v1/cases")
 
 
 @app.get("/api/v1")

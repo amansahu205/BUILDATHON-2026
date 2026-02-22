@@ -43,10 +43,14 @@ def generate_rule_based_report(
     case_name: str,
     witness_name: str,
     aggression_level: str,
+    timeline: list[dict] | None = None,
+    alerts: list[dict] | None = None,
 ) -> dict:
     """Produce a structured report using text-pattern heuristics."""
 
     exchanges = _extract_exchanges(transcript_text)
+    timeline = timeline or []
+    alerts = alerts or []
     witness_lines = [e["text"] for e in exchanges if "witness" in e["speaker"].lower() or witness_name.lower() in e["speaker"].lower()]
     interrogator_lines = [e["text"] for e in exchanges if "interrogator" in e["speaker"].lower() or "sean" in e["speaker"].lower() or "cahill" in e["speaker"].lower()]
 
@@ -211,7 +215,47 @@ def generate_rule_based_report(
 
     coaching_directive = coaching[0]
 
+    timeline_excerpts = [
+        {
+            "questionNumber": t.get("questionNumber"),
+            "speaker": t.get("speaker"),
+            "eventType": t.get("eventType"),
+            "content": (t.get("content") or "")[:260],
+            "createdAt": t.get("createdAt"),
+        }
+        for t in timeline[:12]
+    ]
+    alert_evidence = [
+        {
+            "alertType": a.get("alertType"),
+            "questionNumber": a.get("questionNumber"),
+            "classification": a.get("classification"),
+            "impeachmentRisk": a.get("impeachmentRisk"),
+            "confidence": a.get("confidence"),
+            "currentQuote": (a.get("currentQuote") or "")[:220],
+            "priorQuote": (a.get("priorQuote") or "")[:220],
+            "freRule": a.get("freRule"),
+        }
+        for a in alerts[:12]
+    ]
+    io_matrix = [
+        {
+            "questionNumber": t.get("questionNumber"),
+            "input": t.get("content"),
+            "outputSummary": "Witness response captured"
+            if (t.get("speaker") or "").upper() == "WITNESS"
+            else "Interrogator prompt generated",
+            "eventType": t.get("eventType"),
+        }
+        for t in timeline[:12]
+    ]
+
     return {
+        "case_name": case_name,
+        "witness_name": witness_name,
+        "aggression_level": aggression_level,
+        "analysis_method": "rule_based",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "analysis_rationale": {
             "composure_reasoning": composure_reasoning,
             "tactical_discipline_reasoning": tactical_reasoning,
@@ -229,6 +273,9 @@ def generate_rule_based_report(
         "critical_vulnerability": vulnerability,
         "coaching_directive": coaching_directive,
         "coaching_suggestions": coaching,
+        "timeline_excerpts": timeline_excerpts,
+        "alert_evidence": alert_evidence,
+        "input_output_matrix": io_matrix,
         "lawyer_brief": _build_lawyer_brief(
             case_name, witness_name, aggression_level,
             composure, tactical, professionalism, directness, consistency,

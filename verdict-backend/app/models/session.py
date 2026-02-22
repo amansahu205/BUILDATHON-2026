@@ -1,9 +1,19 @@
-from sqlalchemy import String, Boolean, Integer, Float, DateTime, ForeignKey, JSON
+from sqlalchemy import String, Boolean, Integer, Float, DateTime, ForeignKey, JSON, Enum as PgEnum
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 from app.database import Base
 import uuid
+
+_SESSION_STATUS_ENUM = PgEnum(
+    'LOBBY', 'ACTIVE', 'PAUSED', 'COMPLETE', 'ABANDONED',
+    name='SessionStatus', create_type=False,
+)
+
+_AGGRESSION_ENUM = PgEnum(
+    'STANDARD', 'ELEVATED', 'HIGH_STAKES',
+    name='Aggression', create_type=False,
+)
 
 
 class Session(Base):
@@ -15,9 +25,9 @@ class Session(Base):
     witness_id: Mapped[str] = mapped_column("witnessId", String, ForeignKey("Witness.id", ondelete="CASCADE"))
     attorney_id: Mapped[str | None] = mapped_column("attorneyId", String, nullable=True)
     session_number: Mapped[int] = mapped_column("sessionNumber", Integer, default=1)
-    status: Mapped[str] = mapped_column("status", String, default="LOBBY")
+    status: Mapped[str] = mapped_column("status", _SESSION_STATUS_ENUM, default="LOBBY")
     duration_minutes: Mapped[int] = mapped_column("durationMinutes", Integer)
-    aggression: Mapped[str] = mapped_column("aggression", String, default="STANDARD")
+    aggression: Mapped[str] = mapped_column("aggression", _AGGRESSION_ENUM, default="STANDARD")
     focus_areas: Mapped[list] = mapped_column("focusAreas", ARRAY(String), default=list)
     objection_copilot_enabled: Mapped[bool] = mapped_column("objectionCopilotEnabled", Boolean, default=True)
     sentinel_enabled: Mapped[bool] = mapped_column("sentinelEnabled", Boolean, default=False)

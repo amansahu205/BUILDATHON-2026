@@ -46,7 +46,7 @@ async def create_case(body: CreateCaseRequest, db: AsyncSession = Depends(get_db
         case_type=body.caseType,
         case_type_custom=body.caseTypeCustom,
         opposing_firm=body.opposingFirm,
-        deposition_date=datetime.fromisoformat(body.depositionDate) if body.depositionDate else None,
+        deposition_date=datetime.fromisoformat(body.depositionDate).replace(tzinfo=None) if body.depositionDate else None,
     )
     db.add(c)
     await db.commit()
@@ -75,7 +75,7 @@ async def update_case(case_id: str, body: dict, db: AsyncSession = Depends(get_d
     if "name" in body:
         c.name = body["name"]
     if "depositionDate" in body:
-        c.deposition_date = datetime.fromisoformat(body["depositionDate"])
+        c.deposition_date = datetime.fromisoformat(body["depositionDate"]).replace(tzinfo=None)
     await db.commit()
     return {"success": True, "data": {"id": c.id, "name": c.name}}
 

@@ -10,6 +10,7 @@ from app.database import get_db
 from app.models.user import User
 from app.models.refresh_token import RefreshToken
 from app.schemas.auth import LoginRequest
+from app.middleware.auth import require_auth
 from app.config import settings
 
 router = APIRouter()
@@ -112,7 +113,11 @@ async def login(body: LoginRequest, response: Response, db: AsyncSession = Depen
                 "email": user.email,
                 "name": user.name,
                 "role": user.role,
-            }
+            },
+            "tokens": {
+                "accessToken": access_token,
+                "refreshToken": refresh_token,
+            },
         },
     }
 
@@ -209,3 +214,17 @@ async def logout_all(request: Request, response: Response, db: AsyncSession = De
 
     _clear_auth_cookies(response)
     return {"success": True, "message": "All sessions revoked", "sessionsRevoked": len(tokens)}
+
+
+@router.get("/me")
+async def me(user: User = Depends(require_auth)):
+    return {
+        "success": True,
+        "data": {
+            "id": user.id,
+            "firmId": user.firm_id,
+            "email": user.email,
+            "name": user.name,
+            "role": user.role,
+        },
+    }

@@ -1,30 +1,42 @@
-import { MOCK_WITNESSES } from "@/mocks/data";
+import { api } from "./api";
 import type { Witness, CreateWitnessRequest } from "@/types";
 
 export const witnessesService = {
   list: async (caseId: string): Promise<Witness[]> => {
-    return MOCK_WITNESSES[caseId] || [];
+    try {
+      const { data: resp } = await api.get(`/cases/${caseId}/witnesses`);
+      const witnesses = resp.data?.witnesses ?? resp.data ?? [];
+      return Array.isArray(witnesses) ? witnesses.map(mapWitness) : [];
+    } catch {
+      return [];
+    }
   },
 
   get: async (caseId: string, witnessId: string): Promise<Witness> => {
-    const witness = MOCK_WITNESSES[caseId]?.find(w => w.id === witnessId);
-    if (!witness) throw new Error("Witness not found");
-    return witness;
+    const { data: resp } = await api.get(`/cases/${caseId}/witnesses/${witnessId}`);
+    return mapWitness(resp.data);
   },
 
   create: async (caseId: string, payload: CreateWitnessRequest): Promise<Witness> => {
-    const newWitness: Witness = {
-      id: `wit_${Date.now()}`,
-      caseId,
+    const { data: resp } = await api.post(`/cases/${caseId}/witnesses`, {
       name: payload.name,
-      role: payload.role,
-      sessionCount: 0,
-      scoreTrend: [],
-      plateauAlert: false,
-      createdAt: new Date().toISOString(),
-    };
-    if (!MOCK_WITNESSES[caseId]) MOCK_WITNESSES[caseId] = [];
-    MOCK_WITNESSES[caseId].push(newWitness);
-    return newWitness;
+      role: payload.role.toUpperCase(),
+      email: `${payload.name.toLowerCase().replace(/\s+/g, ".")}@witness.verdict.law`,
+    });
+    return mapWitness(resp.data);
   },
 };
+
+function mapWitness(raw: Record<string, unknown>): Witness {
+  return {
+    id: raw.id as string,
+    caseId: raw.caseId as string ?? "",
+    name: raw.name as string,
+    role: (raw.role as string ?? "").toLowerCase(),
+    sessionCount: (raw.sessionCount as number) ?? 0,
+    latestScore: raw.latestScore as number | undefined,
+    scoreTrend: [],
+    plateauAlert: (raw.plateauDetected as boolean) ?? false,
+    createdAt: raw.createdAt as string ?? new Date().toISOString(),
+  };
+}

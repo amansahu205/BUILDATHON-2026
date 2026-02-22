@@ -1,8 +1,18 @@
-from sqlalchemy import String, Integer, DateTime, ForeignKey, JSON
+from sqlalchemy import String, Integer, DateTime, ForeignKey, JSON, Enum as PgEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 from app.database import Base
 import uuid
+
+_EVENT_TYPE_ENUM = PgEnum(
+    'QUESTION', 'ANSWER', 'PAUSE', 'RESUME', 'TOPIC_CHANGE',
+    'SESSION_START', 'SESSION_END',
+    name='EventType', create_type=False,
+)
+_SPEAKER_ROLE_ENUM = PgEnum(
+    'INTERROGATOR', 'WITNESS', 'SYSTEM',
+    name='SpeakerRole', create_type=False,
+)
 
 
 class SessionEvent(Base):
@@ -11,8 +21,8 @@ class SessionEvent(Base):
     id: Mapped[str] = mapped_column("id", String, primary_key=True, default=lambda: str(uuid.uuid4()))
     session_id: Mapped[str] = mapped_column("sessionId", String, ForeignKey("Session.id", ondelete="CASCADE"))
     firm_id: Mapped[str] = mapped_column("firmId", String)
-    event_type: Mapped[str] = mapped_column("eventType", String)
-    speaker_role: Mapped[str | None] = mapped_column("speakerRole", String, nullable=True)
+    event_type: Mapped[str] = mapped_column("eventType", _EVENT_TYPE_ENUM)
+    speaker_role: Mapped[str | None] = mapped_column("speakerRole", _SPEAKER_ROLE_ENUM, nullable=True)
     content: Mapped[str | None] = mapped_column("content", String, nullable=True)
     question_number: Mapped[int | None] = mapped_column("questionNumber", Integer, nullable=True)
     audio_s3_key: Mapped[str | None] = mapped_column("audioS3Key", String, nullable=True)

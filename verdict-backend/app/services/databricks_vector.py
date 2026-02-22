@@ -1,76 +1,68 @@
 """
 Databricks Vector Search service.
 
-Replaces the former Nia HTTP API.  Uses two Direct Access indexes pre-created
-by scripts/setup_databricks.py:
+Calls a FastAPI retrieval proxy (e.g. http://127.0.0.1:8000/api/retrieve)
+that wraps Databricks Vector Search indexes:
 
   verdict.sessions.fre_rules_index
     — Full FRE corpus (Rules 101–1103).  Queried by Objection Copilot.
-    — Filter: is_deposition_relevant = true
 
   verdict.sessions.prior_statements_index
     — Prior sworn statements extracted from uploaded case documents.
-    — Filter: case_id = <case_id>  (firm-level isolation guaranteed by ingestion)
+    — Filtered by case_id for firm-level isolation.
 
-Both indexes use Databricks Foundation Model API (databricks-gte-large-en, 1024d)
-for embedding, so only query_text is needed — no separate embedding call.
-
-All VectorSearchClient calls are synchronous; we wrap them with
-asyncio.to_thread so they don't block the FastAPI event loop.
+The proxy accepts POST requests with a JSON body and returns matching documents.
+Authentication is via Bearer token in the Authorization header.
 """
 
-import asyncio
 import logging
-from functools import lru_cache
+import httpx
 
 from app.config import settings
 
 logger = logging.getLogger(__name__)
 
 
-@lru_cache(maxsize=1)
-def _get_client():
-    """Return a cached VectorSearchClient.  Lazily imported so the app starts
-    even when DATABRICKS_HOST / DATABRICKS_TOKEN are not yet configured."""
-    from databricks.vector_search.client import VectorSearchClient  # noqa: PLC0415
-
-    return VectorSearchClient(
-        workspace_url=settings.DATABRICKS_HOST,
-        personal_access_token=settings.DATABRICKS_TOKEN,
-        disable_notice=True,
-    )
-
-
-def _parse_vs_response(resp: dict) -> list[dict]:
-    """Convert the Databricks similarity_search response dict into a flat list
-    of row dicts keyed by column name."""
-    cols = [c["name"] for c in resp.get("manifest", {}).get("columns", [])]
-    rows = resp.get("result", {}).get("data_array", [])
-    return [dict(zip(cols, row)) for row in rows]
-
-
 def _databricks_configured() -> bool:
     return bool(settings.DATABRICKS_HOST and settings.DATABRICKS_TOKEN)
 
 
+def _build_url() -> str:
+    host = settings.DATABRICKS_HOST.rstrip("/")
+    path = settings.DATABRICKS_RETRIEVE_PATH
+    return f"{host}{path}"
+
+
+def _headers() -> dict:
+    return {
+        "Authorization": f"Bearer {settings.DATABRICKS_TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+
+def _normalize_results(resp_data: dict | list) -> list[dict]:
+    """Normalize various response formats into a flat list of dicts."""
+    if isinstance(resp_data, list):
+        return resp_data
+
+    if isinstance(resp_data, dict):
+        if "results" in resp_data:
+            return resp_data["results"] if isinstance(resp_data["results"], list) else []
+        if "data" in resp_data:
+            return resp_data["data"] if isinstance(resp_data["data"], list) else []
+        if "manifest" in resp_data and "result" in resp_data:
+            cols = [c["name"] for c in resp_data.get("manifest", {}).get("columns", [])]
+            rows = resp_data.get("result", {}).get("data_array", [])
+            return [dict(zip(cols, row)) for row in rows]
+        return [resp_data]
+
+    return []
+
+
 # ── FRE Rules Index (Objection Copilot) ────────────────────────────────────
 
-def _search_fre_sync(query: str, top_k: int) -> list[dict]:
-    index = _get_client().get_index(
-        endpoint_name=settings.DATABRICKS_VECTOR_ENDPOINT,
-        index_name=settings.DATABRICKS_FRE_INDEX,
-    )
-    resp = index.similarity_search(
-        query_text=query,
-        columns=["content", "rule_number", "article", "is_deposition_relevant"],
-        filters={"is_deposition_relevant": "true"},
-        num_results=top_k,
-    )
-    return _parse_vs_response(resp)
-
-
 async def search_fre_rules(query: str, top_k: int = 3, deposition_only: bool = True) -> list[dict]:
-    """Async wrapper — search the FRE corpus index.
+    """Search the FRE corpus index via the retrieval proxy.
 
     Returns a list of dicts with at least a 'content' key.
     Returns [] gracefully when Databricks is not configured or unavailable.
@@ -78,8 +70,22 @@ async def search_fre_rules(query: str, top_k: int = 3, deposition_only: bool = T
     if not _databricks_configured():
         logger.warning("Databricks not configured — FRE search returning empty")
         return []
+
+    payload = {
+        "query": query,
+        "index_name": settings.DATABRICKS_FRE_INDEX,
+        "endpoint_name": settings.DATABRICKS_VECTOR_ENDPOINT,
+        "num_results": top_k,
+        "columns": ["content", "rule_number", "article", "is_deposition_relevant"],
+    }
+    if deposition_only:
+        payload["filters"] = {"is_deposition_relevant": "true"}
+
     try:
-        return await asyncio.to_thread(_search_fre_sync, query, top_k)
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(_build_url(), json=payload, headers=_headers())
+            resp.raise_for_status()
+            return _normalize_results(resp.json())
     except Exception as exc:
         logger.error("Databricks FRE search failed: %s", exc)
         return []
@@ -87,26 +93,12 @@ async def search_fre_rules(query: str, top_k: int = 3, deposition_only: bool = T
 
 # ── Prior Statements Index (Inconsistency Detector + Interrogator) ──────────
 
-def _search_prior_sync(case_id: str, query: str, top_k: int) -> list[dict]:
-    index = _get_client().get_index(
-        endpoint_name=settings.DATABRICKS_VECTOR_ENDPOINT,
-        index_name=settings.DATABRICKS_VECTOR_INDEX,
-    )
-    resp = index.similarity_search(
-        query_text=query,
-        columns=["content", "page", "line", "doc_type", "witness_name"],
-        filters={"case_id": case_id},
-        num_results=top_k,
-    )
-    return _parse_vs_response(resp)
-
-
 async def search_prior_statements(
     case_id: str,
     query: str,
     top_k: int = 5,
 ) -> list[dict]:
-    """Async wrapper — search prior sworn statements for a specific case.
+    """Search prior sworn statements for a specific case via the retrieval proxy.
 
     Returns a list of dicts with at least 'content', 'page', 'line' keys.
     Returns [] gracefully when Databricks is not configured or unavailable.
@@ -114,22 +106,27 @@ async def search_prior_statements(
     if not _databricks_configured():
         logger.warning("Databricks not configured — prior statement search returning empty")
         return []
+
+    payload = {
+        "query": query,
+        "index_name": settings.DATABRICKS_VECTOR_INDEX,
+        "endpoint_name": settings.DATABRICKS_VECTOR_ENDPOINT,
+        "num_results": top_k,
+        "columns": ["content", "page", "line", "doc_type", "witness_name"],
+        "filters": {"case_id": case_id},
+    }
+
     try:
-        return await asyncio.to_thread(_search_prior_sync, case_id, query, top_k)
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(_build_url(), json=payload, headers=_headers())
+            resp.raise_for_status()
+            return _normalize_results(resp.json())
     except Exception as exc:
         logger.error("Databricks prior-statement search failed: %s", exc)
         return []
 
 
 # ── Upsert (Document Ingestion Pipeline) ────────────────────────────────────
-
-def _upsert_sync(record: dict) -> None:
-    index = _get_client().get_index(
-        endpoint_name=settings.DATABRICKS_VECTOR_ENDPOINT,
-        index_name=settings.DATABRICKS_VECTOR_INDEX,
-    )
-    index.upsert([record])
-
 
 async def upsert_prior_statement(
     case_id: str,
@@ -143,11 +140,14 @@ async def upsert_prior_statement(
     """Upsert a single prior statement chunk into the prior statements index.
 
     Called by the document ingestion pipeline after text extraction.
+    Sends to the retrieval proxy's upsert endpoint (same base, /api/upsert or
+    falls back to including an 'action' field in the retrieve payload).
     Returns True on success, False on any failure.
     """
     if not _databricks_configured():
         logger.warning("Databricks not configured — upsert skipped")
         return False
+
     record = {
         "id": f"{document_id}_{page}_{line}",
         "content": content,
@@ -158,9 +158,28 @@ async def upsert_prior_statement(
         "doc_type": doc_type,
         "witness_name": witness_name,
     }
+
+    host = settings.DATABRICKS_HOST.rstrip("/")
+    upsert_url = f"{host}/api/upsert"
+
+    payload = {
+        "index_name": settings.DATABRICKS_VECTOR_INDEX,
+        "endpoint_name": settings.DATABRICKS_VECTOR_ENDPOINT,
+        "data": record,
+    }
+
     try:
-        await asyncio.to_thread(_upsert_sync, record)
-        return True
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(upsert_url, json=payload, headers=_headers())
+            if resp.status_code == 404:
+                payload_alt = {
+                    "action": "upsert",
+                    "index_name": settings.DATABRICKS_VECTOR_INDEX,
+                    "record": record,
+                }
+                resp = await client.post(_build_url(), json=payload_alt, headers=_headers())
+            resp.raise_for_status()
+            return True
     except Exception as exc:
         logger.error("Databricks upsert failed for doc %s: %s", document_id, exc)
         return False

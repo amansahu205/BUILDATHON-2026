@@ -1,29 +1,81 @@
 import { useParams } from "react-router-dom";
-import { useState, useRef } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { sessionsService } from "@/services/sessions";
-import { MOCK_LIVE_SESSION } from "@/mocks/data";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { Pause, Play, SkipForward, Square, Send, Wifi, WifiOff, AlertTriangle } from "lucide-react";
-import type { LiveSessionState, LiveAlert } from "@/types";
+import { Pause, Play, SkipForward, Square, Send, Wifi, WifiOff, AlertTriangle, Mic, MicOff } from "lucide-react";
+import type { LiveSessionState } from "@/types";
+
+const EMPTY_LIVE_STATE: LiveSessionState = {
+  status: "active",
+  elapsedSeconds: 0,
+  totalSeconds: 1800,
+  currentTopic: "PRIOR_STATEMENTS",
+  questionCount: 0,
+  transcript: [],
+  alerts: [],
+  witnessConnected: true,
+  serviceStatus: { elevenlabs: true, nemotron: true, nia: true },
+};
 
 const LiveSessionPage = () => {
   const { caseId, sessionId } = useParams<{ caseId: string; sessionId: string }>();
   const [note, setNote] = useState("");
   const transcriptRef = useRef<HTMLDivElement>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<BlobPart[]>([]);
+  const recordStartedAtRef = useRef<number>(0);
+  const [isRecording, setIsRecording] = useState(false);
+  const [state, setState] = useState<LiveSessionState>(EMPTY_LIVE_STATE);
+  const [questionText, setQuestionText] = useState("");
 
-  // Use mock live session data for demo
-  const [state, setState] = useState<LiveSessionState>(MOCK_LIVE_SESSION);
+  const { data: liveState } = useQuery({
+    queryKey: ["live-state", sessionId],
+    queryFn: () => sessionsService.getLiveState(sessionId!),
+    enabled: !!sessionId,
+    refetchInterval: 2000,
+  });
+
+  useEffect(() => {
+    if (liveState) setState(liveState);
+  }, [liveState]);
 
   const pause = useMutation({ mutationFn: () => sessionsService.pause(caseId!, sessionId!) });
   const resume = useMutation({ mutationFn: () => sessionsService.resume(caseId!, sessionId!) });
   const end = useMutation({ mutationFn: () => sessionsService.end(caseId!, sessionId!) });
   const skipTopic = useMutation({ mutationFn: () => sessionsService.skipTopic(caseId!, sessionId!) });
   const addNote = useMutation({ mutationFn: (n: string) => sessionsService.addNote(caseId!, sessionId!, n) });
+  const uploadAudio = useMutation({
+    mutationFn: ({ blob, durationMs }: { blob: Blob; durationMs: number }) =>
+      sessionsService.uploadAnswerAudio(sessionId!, blob, state.questionCount || 0, durationMs),
+  });
+  const nextQuestion = useMutation({
+    mutationFn: async () =>
+      sessionsService.streamQuestion(
+        sessionId!,
+        {
+          questionNumber: (state.questionCount || 0) + 1,
+          priorAnswer:
+            [...state.transcript]
+              .reverse()
+              .find((t) => t.speaker === "witness")?.text || undefined,
+          currentTopic: state.currentTopic || "PRIOR_STATEMENTS",
+        },
+        (event) => {
+          if (event.type === "QUESTION_END" && typeof event.fullText === "string") {
+            setQuestionText(event.fullText);
+          }
+          if (event.type === "QUESTION_AUDIO" && typeof event.audioBase64 === "string") {
+            const a = new Audio(`data:audio/mpeg;base64,${event.audioBase64}`);
+            a.play().catch(() => {});
+          }
+        },
+      ),
+  });
 
   const formatTime = (s: number) => `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
   const remaining = state.totalSeconds - state.elapsedSeconds;
@@ -39,6 +91,32 @@ const LiveSessionPage = () => {
     if (note.trim()) {
       addNote.mutate(note.trim());
       setNote("");
+    }
+  };
+
+  const toggleRecording = async () => {
+    if (!isRecording) {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const rec = new MediaRecorder(stream, { mimeType: "audio/webm" });
+      chunksRef.current = [];
+      rec.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) chunksRef.current.push(e.data);
+      };
+      rec.onstop = async () => {
+        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        const durationMs = Math.max(1, Date.now() - recordStartedAtRef.current);
+        if (blob.size > 0) {
+          await uploadAudio.mutateAsync({ blob, durationMs });
+        }
+        stream.getTracks().forEach((t) => t.stop());
+      };
+      recorderRef.current = rec;
+      recordStartedAtRef.current = Date.now();
+      rec.start();
+      setIsRecording(true);
+    } else if (recorderRef.current) {
+      recorderRef.current.stop();
+      setIsRecording(false);
     }
   };
 
@@ -89,6 +167,23 @@ const LiveSessionPage = () => {
 
           {/* Controls */}
           <div className="space-y-2 mt-auto">
+            <Button
+              variant={isRecording ? "destructive" : "outline"}
+              className="w-full"
+              size="sm"
+              onClick={() => toggleRecording()}
+            >
+              {isRecording ? <MicOff className="mr-2 h-3 w-3" /> : <Mic className="mr-2 h-3 w-3" />}
+              {isRecording ? "Stop & Upload" : "Record Answer"}
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full"
+              size="sm"
+              onClick={() => nextQuestion.mutate()}
+            >
+              <Play className="mr-2 h-3 w-3" /> Next Question
+            </Button>
             {state.status === "active" ? (
               <Button variant="outline" className="w-full" size="sm" onClick={() => pause.mutate()}>
                 <Pause className="mr-2 h-3 w-3" /> Pause
@@ -110,6 +205,12 @@ const LiveSessionPage = () => {
         {/* Center Panel — Transcript */}
         <div className="flex-1 flex flex-col">
           <ScrollArea className="flex-1 p-4" ref={transcriptRef}>
+            {questionText && (
+              <div className="mb-3 rounded-md border border-primary/30 bg-primary/5 p-3 text-sm">
+                <span className="text-xs font-medium text-primary uppercase mr-2">interrogator</span>
+                <p className="mt-1">{questionText}</p>
+              </div>
+            )}
             {state.transcript.length === 0 ? (
               <div className="flex items-center justify-center h-full text-muted-foreground">
                 <p>Waiting for session to begin…</p>

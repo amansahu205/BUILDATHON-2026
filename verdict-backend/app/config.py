@@ -29,13 +29,16 @@ class Settings(BaseSettings):
     ELEVENLABS_COACH_VOICE_ID: str = ""
 
     NEMOTRON_API_KEY: str = ""
-    NEMOTRON_BASE_URL: str = "https://integrate.api.nvidia.com/v1"
+    NEMOTRON_BASE_URL: str = "https://openrouter.ai/api/v1"
     NEMOTRON_MODEL: str = "nvidia/llama-3.1-nemotron-ultra-253b-v1"
-    NEMOTRON_TIMEOUT_MS: int = 5000
+    NEMOTRON_TIMEOUT_MS: int = 15000
+    NEMOTRON_HTTP_REFERER: str = "https://verdict.law"
+    NEMOTRON_X_TITLE: str = "VERDICT"
 
-    # Databricks Vector Search
-    DATABRICKS_HOST: str = ""            # e.g. https://adb-xxxx.azuredatabricks.net
+    # Databricks Vector Search (via FastAPI retrieval proxy)
+    DATABRICKS_HOST: str = ""            # e.g. http://127.0.0.1:8000
     DATABRICKS_TOKEN: str = ""           # Personal access token (dapi...)
+    DATABRICKS_RETRIEVE_PATH: str = "/api/retrieve"
     DATABRICKS_VECTOR_ENDPOINT: str = "verdict-vector-endpoint"
     DATABRICKS_VECTOR_INDEX: str = "verdict.sessions.prior_statements_index"
     DATABRICKS_FRE_INDEX: str = "verdict.sessions.fre_rules_index"

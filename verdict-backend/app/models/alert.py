@@ -1,8 +1,21 @@
-from sqlalchemy import String, Integer, Float, DateTime, ForeignKey, JSON
+from sqlalchemy import String, Integer, Float, DateTime, ForeignKey, JSON, Enum as PgEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 from app.database import Base
 import uuid
+
+_ALERT_TYPE_ENUM = PgEnum(
+    'INCONSISTENCY', 'OBJECTION', 'COMPOSURE', 'COACHING',
+    name='AlertType', create_type=False,
+)
+_IMPEACHMENT_RISK_ENUM = PgEnum(
+    'HIGH', 'MEDIUM', 'LOW',
+    name='ImpeachmentRisk', create_type=False,
+)
+_ALERT_STATUS_ENUM = PgEnum(
+    'PENDING', 'CONFIRMED', 'REJECTED', 'ANNOTATED',
+    name='AlertStatus', create_type=False,
+)
 
 
 class Alert(Base):
@@ -11,9 +24,9 @@ class Alert(Base):
     id: Mapped[str] = mapped_column("id", String, primary_key=True, default=lambda: str(uuid.uuid4()))
     session_id: Mapped[str] = mapped_column("sessionId", String, ForeignKey("Session.id", ondelete="CASCADE"))
     firm_id: Mapped[str] = mapped_column("firmId", String)
-    alert_type: Mapped[str] = mapped_column("alertType", String)
-    impeachment_risk: Mapped[str | None] = mapped_column("impeachmentRisk", String, nullable=True)
-    status: Mapped[str] = mapped_column("status", String, default="PENDING")
+    alert_type: Mapped[str] = mapped_column("alertType", _ALERT_TYPE_ENUM)
+    impeachment_risk: Mapped[str | None] = mapped_column("impeachmentRisk", _IMPEACHMENT_RISK_ENUM, nullable=True)
+    status: Mapped[str] = mapped_column("status", _ALERT_STATUS_ENUM, default="PENDING")
     confidence: Mapped[float | None] = mapped_column("confidence", Float, nullable=True)
     prior_quote: Mapped[str | None] = mapped_column("priorQuote", String, nullable=True)
     prior_source_page: Mapped[int | None] = mapped_column("priorSourcePage", Integer, nullable=True)

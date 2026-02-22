@@ -16,12 +16,14 @@ httpx==0.28.1
 python-dotenv==1.0.1
 nanoid==2.0.0
 boto3==1.35.0
-matplotlib==3.9.0
+matplotlib>=3.9.0
 reportlab==4.2.0
-numpy==2.0.0
+numpy>=2.0.0
+pdfplumber==0.11.4
+python-docx==1.1.2
+lxml==5.3.0
 # Databricks
 databricks-sdk==0.20.0
 databricks-vectorsearch==0.40
 # Document ingestion
-pdfplumber==0.11.4
 mammoth==1.8.0

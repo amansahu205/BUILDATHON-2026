@@ -1,6 +1,9 @@
 import httpx
 import json
+import logging
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 async def score_contradiction(
@@ -25,9 +28,18 @@ Respond ONLY with JSON:
   "reasoning": "<one sentence>"
 }}"""
 
+    headers = {
+        "Authorization": f"Bearer {settings.NEMOTRON_API_KEY}",
+        "Content-Type": "application/json",
+    }
+    if settings.NEMOTRON_HTTP_REFERER:
+        headers["HTTP-Referer"] = settings.NEMOTRON_HTTP_REFERER
+    if settings.NEMOTRON_X_TITLE:
+        headers["X-Title"] = settings.NEMOTRON_X_TITLE
+
     async with httpx.AsyncClient(
         base_url=settings.NEMOTRON_BASE_URL,
-        headers={"Authorization": f"Bearer {settings.NEMOTRON_API_KEY}"},
+        headers=headers,
         timeout=settings.NEMOTRON_TIMEOUT_MS / 1000,
     ) as client:
         resp = await client.post("/chat/completions", json={
@@ -37,5 +49,10 @@ Respond ONLY with JSON:
             "temperature": 0.1,
         })
         resp.raise_for_status()
-        text = resp.json()["choices"][0]["message"]["content"]
-        return json.loads(text)
+        content = resp.json()["choices"][0]["message"]["content"]
+        clean = content.strip()
+        if clean.startswith("```"):
+            clean = clean.split("\n", 1)[1] if "\n" in clean else clean[3:]
+            if clean.endswith("```"):
+                clean = clean[:-3]
+        return json.loads(clean.strip())

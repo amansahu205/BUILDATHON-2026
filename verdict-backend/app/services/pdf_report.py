@@ -233,6 +233,9 @@ def generate_pdf(report: dict) -> io.BytesIO:
     vulnerability = report.get("critical_vulnerability", {})
     coaching = report.get("coaching_suggestions", [])
     brief = report.get("lawyer_brief", {})
+    timeline_excerpts = report.get("timeline_excerpts", [])
+    alert_evidence = report.get("alert_evidence", [])
+    io_matrix = report.get("input_output_matrix", [])
     case_name = report.get("case_name", "Unknown Case")
     witness = report.get("witness_name", "Unknown Witness")
     aggression = report.get("aggression_level", "N/A")
@@ -450,6 +453,97 @@ def generate_pdf(report: dict) -> io.BytesIO:
         story.append(Paragraph(
             f'<font color="#0F1B2D"><b>{idx}.</b></font>  {step}', s["body"]
         ))
+
+    # ── 9. Session Timeline Excerpts ─────────────────────────────
+    story.append(PageBreak())
+    story.append(Paragraph("Session Timeline Excerpts", s["h2"]))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=LIGHT_GRAY, spaceAfter=3 * mm))
+    if not timeline_excerpts:
+        story.append(Paragraph("No transcript timeline data available.", s["body"]))
+    else:
+        timeline_rows = [
+            [
+                Paragraph("<b>Q#</b>", s["body_sm"]),
+                Paragraph("<b>Speaker</b>", s["body_sm"]),
+                Paragraph("<b>Excerpt</b>", s["body_sm"]),
+            ]
+        ]
+        for item in timeline_excerpts[:10]:
+            timeline_rows.append(
+                [
+                    Paragraph(str(item.get("questionNumber") or "-"), s["body_sm"]),
+                    Paragraph(str(item.get("speaker") or "UNKNOWN"), s["body_sm"]),
+                    Paragraph((item.get("content") or "")[:180], s["body_sm"]),
+                ]
+            )
+        timeline_table = Table(timeline_rows, colWidths=[14 * mm, 28 * mm, 138 * mm])
+        timeline_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), LIGHT_BG),
+            ("BOX", (0, 0), (-1, -1), 0.5, LIGHT_GRAY),
+            ("INNERGRID", (0, 0), (-1, -1), 0.25, LIGHT_GRAY),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 4),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+            ("TOPPADDING", (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ]))
+        story.append(timeline_table)
+
+    # ── 10. Alert Evidence ───────────────────────────────────────
+    story.append(Paragraph("Alert Evidence", s["h2"]))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=LIGHT_GRAY, spaceAfter=3 * mm))
+    if not alert_evidence:
+        story.append(Paragraph("No alert evidence was recorded in this session.", s["body"]))
+    else:
+        for item in alert_evidence[:8]:
+            story.append(
+                Paragraph(
+                    f"<b>{item.get('alertType', 'ALERT')}</b> "
+                    f"(Q{item.get('questionNumber') or '-'}) "
+                    f"{'• FRE ' + item.get('freRule') if item.get('freRule') else ''}",
+                    s["h3"],
+                )
+            )
+            if item.get("currentQuote"):
+                story.append(Paragraph(f"<b>Current:</b> {item.get('currentQuote')}", s["body_sm"]))
+            if item.get("priorQuote"):
+                story.append(Paragraph(f"<b>Prior:</b> {item.get('priorQuote')}", s["body_sm"]))
+            story.append(Paragraph(f"Confidence: {item.get('confidence', 0)}", s["body_sm"]))
+            story.append(Spacer(1, 2 * mm))
+
+    # ── 11. Input-Output Matrix ──────────────────────────────────
+    story.append(Paragraph("Input-Output Matrix", s["h2"]))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=LIGHT_GRAY, spaceAfter=3 * mm))
+    if not io_matrix:
+        story.append(Paragraph("No input-output matrix data available.", s["body"]))
+    else:
+        io_rows = [
+            [
+                Paragraph("<b>Q#</b>", s["body_sm"]),
+                Paragraph("<b>Input</b>", s["body_sm"]),
+                Paragraph("<b>Output</b>", s["body_sm"]),
+            ]
+        ]
+        for item in io_matrix[:10]:
+            io_rows.append(
+                [
+                    Paragraph(str(item.get("questionNumber") or "-"), s["body_sm"]),
+                    Paragraph((item.get("input") or "")[:150], s["body_sm"]),
+                    Paragraph((item.get("outputSummary") or "")[:120], s["body_sm"]),
+                ]
+            )
+        io_table = Table(io_rows, colWidths=[14 * mm, 88 * mm, 78 * mm])
+        io_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), LIGHT_BG),
+            ("BOX", (0, 0), (-1, -1), 0.5, LIGHT_GRAY),
+            ("INNERGRID", (0, 0), (-1, -1), 0.25, LIGHT_GRAY),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 4),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+            ("TOPPADDING", (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ]))
+        story.append(io_table)
 
     story.append(Spacer(1, 10 * mm))
     story.append(HRFlowable(width="60%", thickness=0.5, color=GRAY, spaceAfter=4 * mm))
