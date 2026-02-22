@@ -75,11 +75,13 @@ async def brief_generation_status(
 
     narrative = brief.narrative_text or ""
     if narrative.startswith("Generation failed"):
-        return {"success": True, "data": {"progress": 100, "eta": 0, "briefId": brief.id}}
-    if brief.session_score and brief.session_score > 0 and "Generating" not in narrative:
+        # Failed — return as complete so frontend can show error state
         return {"success": True, "data": {"progress": 100, "eta": 0, "briefId": brief.id}}
     if narrative == "Generating...":
         return {"success": True, "data": {"progress": 40, "eta": 15, "briefId": None}}
+    if narrative and "Generating" not in narrative:
+        # Any non-generating, non-empty narrative = done
+        return {"success": True, "data": {"progress": 100, "eta": 0, "briefId": brief.id}}
 
     return {"success": True, "data": {"progress": 80, "eta": 5, "briefId": None}}
 
