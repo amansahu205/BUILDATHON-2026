@@ -21,6 +21,8 @@ app.add_middleware(
         settings.FRONTEND_URL,
         "https://verdict-io.lovable.app",
         "https://*.vercel.app",
+        "https://*.up.railway.app",
+        "*"
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],

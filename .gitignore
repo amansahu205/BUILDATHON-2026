@@ -41,3 +41,7 @@ coverage/
 # Temporary
 tmp/
 temp/
+
+# Data
+data/
+LOVABLE_API_INSTRUCTIONS.md
