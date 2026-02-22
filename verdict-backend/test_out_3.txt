@@ -1,0 +1,20 @@
+INFO:numexpr.utils:Note: NumExpr detected 16 cores but "NUMEXPR_MAX_THREADS" not set, so enforcing safe limit of 8.
+INFO:numexpr.utils:NumExpr defaulting to 8 threads.
+INFO:httpx:HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+Model config: claude-sonnet-4-6
+Databricks Host: https://dbc-6d8da7ec-a6cd.cloud.databricks.com
+Testing Databricks search...
+[NOTICE] Using a Personal Authentication Token (PAT). Recommended for development only. For improved performance, please use Service Principal based authentication. To disable this message, pass disable_notice=True.
+Match 1 : FRE Rule 803 ù Exceptions to the Rule Against HearsayùRegardless of Whether the Declarant Is Availab...
+Match 2 : FRE 602 ù Personal Knowledge: A witness may testify only if evidence is introduced sufficient to sup...
+
+Testing full Objection Copilot agent...
+[NOTICE] Using a Personal Authentication Token (PAT). Recommended for development only. For improved performance, please use Service Principal based authentication. To disable this message, pass disable_notice=True.
+Agent Response:
+{
+  "isObjectionable": false,
+  "category": null,
+  "freRule": null,
+  "explanation": null,
+  "confidence": 0.0
+}

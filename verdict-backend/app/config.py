@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     S3_BUCKET_NAME: str = "verdict-documents-hackathon"
 
     ANTHROPIC_API_KEY: str = ""
-    ANTHROPIC_MODEL: str = "claude-sonnet-4-20250514"
+    ANTHROPIC_MODEL: str = "claude-sonnet-4-6"
 
     ELEVENLABS_API_KEY: str = ""
     ELEVENLABS_INTERROGATOR_VOICE_ID: str = ""
