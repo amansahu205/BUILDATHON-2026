@@ -1,3 +1,4 @@
+import httpx
 from elevenlabs.client import AsyncElevenLabs
 from app.config import settings
 
@@ -29,3 +30,32 @@ async def speech_to_text(audio_bytes: bytes) -> str:
         model_id="scribe_v1",
     )
     return result.text or ""
+
+
+async def get_conversation_token(agent_id: str) -> str:
+    """Get a signed WebSocket URL for an ElevenLabs Conversational AI session.
+    Each URL is single-use and expires after 30 minutes.
+    """
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.get(
+            f"https://api.elevenlabs.io/v1/convai/conversation/get_signed_url",
+            headers={"xi-api-key": settings.ELEVENLABS_API_KEY},
+            params={"agent_id": agent_id},
+        )
+        resp.raise_for_status()
+        return resp.json()["signed_url"]
+
+
+def build_conversation_override(system_prompt: str, first_message: str) -> dict:
+    """Build a per-session ElevenLabs conversation config override.
+
+    Injected at session start so each witness gets a unique interrogator
+    configured with their case facts — prevents race conditions from mutating
+    the shared agent configuration in ElevenLabs dashboard.
+    """
+    return {
+        "agent": {
+            "prompt": {"prompt": system_prompt},
+            "first_message": first_message,
+        }
+    }
