@@ -1,6 +1,8 @@
+import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from app.database import engine, AsyncSessionLocal
 from app.routers import auth, cases, sessions, briefs, documents, witnesses
@@ -15,17 +17,41 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="VERDICT API", version="1.0.0", lifespan=lifespan)
 
+# Explicit origins required when allow_credentials=True (browser rejects "*")
+_cors_origins = [
+    settings.FRONTEND_URL,
+    "http://localhost:5173",
+    "http://localhost:8080",
+    "http://localhost:8081",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:8080",
+    "http://127.0.0.1:8081",
+    "https://verdict-io.lovable.app",
+]
 app.add_middleware(
     CORSMiddleware,
+<<<<<<< Updated upstream
     allow_origins=[
         settings.FRONTEND_URL,
         "https://verdict-io.lovable.app",
         "https://*.vercel.app",
     ],
+=======
+    allow_origins=[o for o in _cors_origins if o],
+>>>>>>> Stashed changes
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization", "x-request-id"],
 )
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    """Return 500 as JSON with message so login/auth errors are debuggable."""
+    logging.exception("Unhandled exception")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": {"code": "SERVER_ERROR", "message": str(exc)}},
+    )
 
 app.include_router(auth.router,     prefix="/api/v1/auth")
 app.include_router(cases.router,    prefix="/api/v1/cases")

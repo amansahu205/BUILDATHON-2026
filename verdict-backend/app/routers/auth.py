@@ -1,10 +1,10 @@
 import hashlib
 from datetime import datetime, timedelta
+import bcrypt
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 from nanoid import generate
 from app.database import get_db
 from app.models.user import User
@@ -14,7 +14,16 @@ from app.middleware.auth import require_auth
 from app.config import settings
 
 router = APIRouter()
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+def _verify_password(plain: str, hashed: str) -> bool:
+    """Verify password against hash. Uses bcrypt directly to avoid passlib/bcrypt version issues."""
+    if not plain or not hashed:
+        return False
+    try:
+        return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
+    except Exception:
+        return False
 
 _ACCESS_TTL_HOURS = 8
 _REFRESH_TTL_DAYS = 30
@@ -75,51 +84,66 @@ def _clear_auth_cookies(response: Response) -> None:
 
 @router.post("/login")
 async def login(body: LoginRequest, response: Response, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User).where(User.email == body.email.lower()))
-    user = result.scalar_one_or_none()
+    try:
+        result = await db.execute(select(User).where(User.email == body.email.lower()))
+        user = result.scalar_one_or_none()
 
-    if not user or not user.password_hash:
-        raise HTTPException(401, detail={"code": "INVALID_CREDENTIALS"})
+        if not user or not user.password_hash:
+            raise HTTPException(401, detail={"code": "INVALID_CREDENTIALS"})
 
-    if not pwd_context.verify(body.password, user.password_hash):
-        user.login_attempts = (user.login_attempts or 0) + 1
+        if not _verify_password(body.password, user.password_hash or ""):
+            user.login_attempts = (user.login_attempts or 0) + 1
+            await db.commit()
+            raise HTTPException(401, detail={"code": "INVALID_CREDENTIALS"})
+
+        if not user.is_active:
+            raise HTTPException(403, detail={"code": "ACCOUNT_INACTIVE"})
+
+        access_token = _access_token(user)
+        refresh_token = _make_refresh_token(user)
+        # Ensure tokens are str (jose can return bytes in some versions)
+        if isinstance(access_token, bytes):
+            access_token = access_token.decode("utf-8")
+        if isinstance(refresh_token, bytes):
+            refresh_token = refresh_token.decode("utf-8")
+
+        token_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
+        db.add(RefreshToken(
+            user_id=user.id,
+            token_hash=token_hash,
+            expires_at=datetime.utcnow() + timedelta(days=_REFRESH_TTL_DAYS),
+        ))
+        user.last_login_at = datetime.utcnow()
+        user.login_attempts = 0
         await db.commit()
-        raise HTTPException(401, detail={"code": "INVALID_CREDENTIALS"})
 
-    if not user.is_active:
-        raise HTTPException(403, detail={"code": "ACCOUNT_INACTIVE"})
+        try:
+            _set_auth_cookies(response, access_token, refresh_token)
+        except Exception:
+            pass  # Frontend uses tokens from JSON body; cookies are optional
 
-    access_token = _access_token(user)
-    refresh_token = _make_refresh_token(user)
-
-    token_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
-    db.add(RefreshToken(
-        user_id=user.id,
-        token_hash=token_hash,
-        expires_at=datetime.utcnow() + timedelta(days=_REFRESH_TTL_DAYS),
-    ))
-    user.last_login_at = datetime.utcnow()
-    user.login_attempts = 0
-    await db.commit()
-
-    _set_auth_cookies(response, access_token, refresh_token)
-
-    return {
-        "success": True,
-        "data": {
-            "user": {
-                "id": user.id,
-                "firmId": user.firm_id,
-                "email": user.email,
-                "name": user.name,
-                "role": user.role,
+        return {
+            "success": True,
+            "data": {
+                "user": {
+                    "id": str(user.id),
+                    "firmId": str(user.firm_id),
+                    "email": str(user.email),
+                    "name": str(user.name or ""),
+                    "role": str(user.role) if user.role else "ASSOCIATE",
+                },
+                "tokens": {
+                    "accessToken": access_token,
+                    "refreshToken": refresh_token,
+                },
             },
-            "tokens": {
-                "accessToken": access_token,
-                "refreshToken": refresh_token,
-            },
-        },
-    }
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        import logging
+        logging.exception("Login failed")
+        raise HTTPException(status_code=500, detail={"code": "LOGIN_ERROR", "message": str(e)})
 
 
 @router.post("/refresh")

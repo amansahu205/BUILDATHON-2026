@@ -120,8 +120,8 @@ const LiveSessionPage = () => {
     }
   };
 
-  // Service degradation banners
-  const degraded = !state.serviceStatus.elevenlabs || !state.serviceStatus.nemotron || !state.serviceStatus.nia;
+  // Voice/agent services — app works in text-only if ElevenLabs is missing
+  const degraded = !state.serviceStatus.elevenlabs || !state.serviceStatus.nemotron;
 
   return (
     <div className="flex flex-col h-screen bg-background">
@@ -130,9 +130,8 @@ const LiveSessionPage = () => {
         <div className="flex items-center gap-2 bg-verdict-orange/10 border-b border-verdict-orange/30 px-4 py-2 text-sm">
           <AlertTriangle className="h-4 w-4 text-verdict-orange" />
           <span>
-            {!state.serviceStatus.elevenlabs && "ElevenLabs unavailable. "}
+            {!state.serviceStatus.elevenlabs && "Voice (ElevenLabs) unavailable — add ELEVENLABS_API_KEY and voice IDs to verdict-backend .env. "}
             {!state.serviceStatus.nemotron && "Nemotron unavailable. "}
-            {!state.serviceStatus.nia && "Nia offline. "}
             Some features may be degraded.
           </span>
         </div>

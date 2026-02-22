@@ -19,7 +19,7 @@ from app.agents.interrogator import generate_question
 from app.agents.objection import analyze_for_objections
 from app.agents.detector import detect_inconsistency
 from app.agents.models import VerdictCase
-from app.services.elevenlabs import text_to_speech, speech_to_text
+from app.services.elevenlabs import text_to_speech, speech_to_text, _voice_available
 from app.services.s3 import upload_bytes
 from app.schemas.sessions import CreateSessionRequest, QuestionRequest, ObjectionRequest, InconsistencyRequest
 from app.config import settings
@@ -496,7 +496,7 @@ async def get_live_state(
             "alerts": [_alert_to_live_alert(alert) for alert in alerts],
             "witnessConnected": bool(session.witness_joined),
             "serviceStatus": {
-                "elevenlabs": bool(settings.ELEVENLABS_API_KEY),
+                "elevenlabs": _voice_available(),
                 "nemotron": bool(settings.NEMOTRON_API_KEY),
                 "nia": True,
             },

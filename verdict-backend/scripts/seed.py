@@ -3,7 +3,7 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from passlib.context import CryptContext
+import bcrypt
 from app.database import AsyncSessionLocal
 from app.models.firm import Firm
 from app.models.user import User
@@ -11,12 +11,28 @@ from app.models.case import Case
 from app.models.witness import Witness
 import uuid
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-PASSWORD_HASH = pwd_context.hash("Demo!Pass123")
+# Use bcrypt directly to avoid passlib/bcrypt version clashes (passlib still verifies this)
+PASSWORD_HASH = bcrypt.hashpw("Demo!Pass123".encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 async def main():
+    from sqlalchemy import select, update
     async with AsyncSessionLocal() as db:
+        # Idempotent: if firm already exists (by id or slug), just reset demo user passwords so login works
+        existing = await db.execute(select(Firm).where((Firm.id == "firm-demo") | (Firm.slug == "demo-law-group")))
+        if existing.scalar_one_or_none():
+            # Update password hashes for demo users (in case they were created with broken passlib)
+            r = await db.execute(
+                select(User).where(
+                    User.email.in_(["sarah.chen@demo.com", "j.rodriguez@demo.com", "admin@demo.com"]),
+                )
+            )
+            for user in r.scalars().all():
+                user.password_hash = PASSWORD_HASH
+            await db.commit()
+            print("✅ Demo user passwords reset. Login: sarah.chen@demo.com / Demo!Pass123")
+            return
+
         firm = Firm(
             id="firm-demo",
             name="Demo Law Group LLP",

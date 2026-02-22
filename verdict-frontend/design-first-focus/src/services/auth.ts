@@ -4,7 +4,9 @@ import type { LoginRequest, LoginResponse, User } from "@/types";
 export const authService = {
   login: async (payload: LoginRequest): Promise<LoginResponse> => {
     const { data: resp } = await api.post("/auth/login", payload);
-    const { user, tokens } = resp.data;
+    const payloadData = resp?.data ?? resp;
+    const { user, tokens } = payloadData;
+    if (!tokens?.accessToken) throw new Error("Invalid login response");
     tokenStore.set(tokens);
     return { user, tokens };
   },
@@ -24,7 +26,7 @@ export const authService = {
 
   me: async (): Promise<User> => {
     const { data: resp } = await api.get("/auth/me");
-    return resp.data;
+    return (resp?.data ?? resp) as User;
   },
 
   forgotPassword: async (_email: string): Promise<void> => {},
