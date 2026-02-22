@@ -1,8 +1,13 @@
-from sqlalchemy import String, Boolean, Integer, DateTime, ForeignKey
+from sqlalchemy import String, Boolean, Integer, DateTime, ForeignKey, Enum as PgEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 from app.database import Base
 import uuid
+
+_USER_ROLE_ENUM = PgEnum(
+    'PARTNER', 'ASSOCIATE', 'PARALEGAL', 'ADMIN',
+    name='Role', create_type=False,
+)
 
 
 class User(Base):
@@ -12,7 +17,7 @@ class User(Base):
     firm_id: Mapped[str] = mapped_column("firmId", String, ForeignKey("Firm.id", ondelete="CASCADE"))
     email: Mapped[str] = mapped_column("email", String, unique=True)
     name: Mapped[str] = mapped_column("name", String)
-    role: Mapped[str] = mapped_column("role", String)
+    role: Mapped[str] = mapped_column("role", _USER_ROLE_ENUM)
     password_hash: Mapped[str | None] = mapped_column("passwordHash", String, nullable=True)
     is_active: Mapped[bool] = mapped_column("isActive", Boolean, default=True)
     email_verified: Mapped[bool] = mapped_column("emailVerified", Boolean, default=False)

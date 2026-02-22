@@ -1,9 +1,14 @@
-from sqlalchemy import String, Boolean, Integer, DateTime, ForeignKey
+from sqlalchemy import String, Boolean, Integer, DateTime, ForeignKey, Enum as PgEnum
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 from app.database import Base
 import uuid
+
+_WITNESS_ROLE_ENUM = PgEnum(
+    'DEFENDANT', 'PLAINTIFF', 'EXPERT', 'CORPORATE_REPRESENTATIVE', 'OTHER',
+    name='WitnessRole', create_type=False,
+)
 
 
 class Witness(Base):
@@ -14,7 +19,7 @@ class Witness(Base):
     firm_id: Mapped[str] = mapped_column("firmId", String)
     name: Mapped[str] = mapped_column("name", String)
     email: Mapped[str] = mapped_column("email", String)
-    role: Mapped[str] = mapped_column("role", String)
+    role: Mapped[str] = mapped_column("role", _WITNESS_ROLE_ENUM)
     notes: Mapped[str | None] = mapped_column("notes", String, nullable=True)
     linked_document_ids: Mapped[list] = mapped_column("linkedDocumentIds", ARRAY(String), default=list)
     session_count: Mapped[int] = mapped_column("sessionCount", Integer, default=0)
