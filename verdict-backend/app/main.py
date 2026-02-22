@@ -32,11 +32,15 @@ app.add_middleware(
     CORSMiddleware,
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     allow_origins=[
         settings.FRONTEND_URL,
         "https://verdict-io.lovable.app",
         "https://*.vercel.app",
     ],
+=======
+    allow_origins=[o for o in _cors_origins if o],
+>>>>>>> Stashed changes
 =======
     allow_origins=[o for o in _cors_origins if o],
 >>>>>>> Stashed changes
