@@ -356,17 +356,23 @@ async def stream_question(
         full_text = ""
         yield f"data: {json.dumps({'type': 'QUESTION_START', 'questionNumber': body.questionNumber})}\n\n"
 
-        async for chunk in generate_question(
-            case=verdict_case,
-            current_topic=body.currentTopic,
-            question_number=body.questionNumber,
-            prior_answer=body.priorAnswer,
-            hesitation_detected=body.hesitationDetected,
-            recent_inconsistency_flag=body.recentInconsistencyFlag,
-            prior_weak_areas=session.prior_weak_areas or [],
-        ):
-            full_text += chunk
-            yield f"data: {json.dumps({'type': 'QUESTION_CHUNK', 'text': chunk})}\n\n"
+        try:
+            async for chunk in generate_question(
+                case=verdict_case,
+                current_topic=body.currentTopic,
+                question_number=body.questionNumber,
+                prior_answer=body.priorAnswer,
+                hesitation_detected=body.hesitationDetected,
+                recent_inconsistency_flag=body.recentInconsistencyFlag,
+                prior_weak_areas=session.prior_weak_areas or [],
+            ):
+                full_text += chunk
+                yield f"data: {json.dumps({'type': 'QUESTION_CHUNK', 'text': chunk})}\n\n"
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).error("Interrogator agent failed: %s", exc)
+            full_text = full_text or f"[Agent error — {type(exc).__name__}]"
+            yield f"data: {json.dumps({'type': 'QUESTION_CHUNK', 'text': full_text})}\n\n"
 
         event = SessionEvent(
             session_id=session.id,
@@ -532,10 +538,16 @@ async def check_objection(
         raise HTTPException(404, detail={"code": "NOT_FOUND"})
 
     start = time.time()
-    analysis = await analyze_for_objections(
-        question_text=body.questionText,
-        session_id=session_id,
-    )
+    try:
+        analysis = await analyze_for_objections(
+            question_text=body.questionText,
+            session_id=session_id,
+        )
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).error("Objection agent failed: %s", exc)
+        # Graceful fallback — return non-objectionable result
+        analysis = {"isObjectionable": False, "category": None, "freRule": None, "explanation": None, "confidence": 0.0}
     if analysis.get("isObjectionable"):
         alert = Alert(
             session_id=session_id,
@@ -572,13 +584,18 @@ async def check_inconsistency(
     if not session:
         raise HTTPException(404, detail={"code": "NOT_FOUND"})
 
-    detection = await detect_inconsistency(
-        question_text=body.questionText,
-        answer_text=body.answerText,
-        session_id=session_id,
-        case_id=session.case_id,          # Databricks filters prior_statements by case_id
-        case_type=session.case.case_type if session.case else "OTHER",
-    )
+    try:
+        detection = await detect_inconsistency(
+            question_text=body.questionText,
+            answer_text=body.answerText,
+            session_id=session_id,
+            case_id=session.case_id,
+            case_type=session.case.case_type if session.case else "OTHER",
+        )
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).error("Inconsistency agent failed: %s", exc)
+        detection = {"flagFound": False, "contradictionConfidence": 0.0, "priorQuote": None, "impeachmentRisk": "LOW"}
     if detection.get("flagFound"):
         alert = Alert(
             session_id=session_id,
