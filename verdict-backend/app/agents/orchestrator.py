@@ -55,7 +55,14 @@ Generate a coaching brief as JSON:
 }}"""
 
     raw = await claude_chat(ORCHESTRATOR_SYSTEM, prompt, max_tokens=1500)
-    brief_data = json.loads(raw)
+    # Strip markdown code fences if Claude wrapped the JSON
+    cleaned = raw.strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.split("```")[1]
+        if cleaned.startswith("json"):
+            cleaned = cleaned[4:]
+        cleaned = cleaned.strip()
+    brief_data = json.loads(cleaned)
 
     narration = f"Session complete. Your overall score is {brief_data['sessionScore']} out of 100. {brief_data['narrativeText']}"
     try:
