@@ -1,4 +1,5 @@
 import hashlib
+import warnings
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,7 +15,9 @@ from app.middleware.auth import require_auth
 from app.config import settings
 
 router = APIRouter()
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore", category=UserWarning)
+    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 _ACCESS_TTL_HOURS = 8
 _REFRESH_TTL_DAYS = 30

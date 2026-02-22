@@ -4,6 +4,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from passlib.context import CryptContext
+from sqlalchemy import select
 from app.database import AsyncSessionLocal
 from app.models.firm import Firm
 from app.models.user import User
@@ -15,41 +16,81 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 PASSWORD_HASH = pwd_context.hash("Demo!Pass123")
 
 
+async def get_or_create_firm(db):
+    result = await db.execute(select(Firm).where(Firm.id == "firm-demo"))
+    firm = result.scalar_one_or_none()
+    if firm:
+        print("   firm     : already exists — skipping")
+        return firm
+    firm = Firm(
+        id="firm-demo",
+        name="Demo Law Group LLP",
+        slug="demo-law-group",
+        seats=10,
+        plan="professional",
+        setup_complete=True,
+        retention_days=90,
+    )
+    db.add(firm)
+    await db.flush()
+    print("   firm     : created")
+    return firm
+
+
+async def get_or_create_user(db, email, name, role):
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none()
+    if user:
+        print(f"   user {email}: already exists — skipping")
+        return user
+    user = User(firm_id="firm-demo", email=email, name=name, role=role, password_hash=PASSWORD_HASH, email_verified=True)
+    db.add(user)
+    await db.flush()
+    print(f"   user {email}: created ({user.id})")
+    return user
+
+
+async def get_or_create_case(db, case_id, owner_id, case_name, case_type, opposing_party):
+    result = await db.execute(select(Case).where(Case.id == case_id))
+    case = result.scalar_one_or_none()
+    if case:
+        print(f"   case {case_id}: already exists — skipping")
+        return case
+    case = Case(id=case_id, firm_id="firm-demo", owner_id=owner_id, case_name=case_name, case_type=case_type, opposing_party=opposing_party)
+    db.add(case)
+    await db.flush()
+    print(f"   case {case_id}: created")
+    return case
+
+
+async def get_or_create_witness(db, witness_id, case_id, name, email, role, notes):
+    result = await db.execute(select(Witness).where(Witness.id == witness_id))
+    witness = result.scalar_one_or_none()
+    if witness:
+        print(f"   witness {witness_id}: already exists — skipping")
+        return witness
+    witness = Witness(id=witness_id, case_id=case_id, firm_id="firm-demo", name=name, email=email, role=role, notes=notes)
+    db.add(witness)
+    await db.flush()
+    print(f"   witness {witness_id}: created")
+    return witness
+
+
 async def main():
     async with AsyncSessionLocal() as db:
-        firm = Firm(
-            id="firm-demo",
-            name="Demo Law Group LLP",
-            slug="demo-law-group",
-            seats=10,
-            plan="professional",
-            setup_complete=True,
-            retention_days=90,
-        )
-        db.add(firm)
-        await db.flush()
+        await get_or_create_firm(db)
 
-        sarah = User(firm_id="firm-demo", email="sarah.chen@demo.com", name="Sarah Chen", role="PARTNER", password_hash=PASSWORD_HASH, email_verified=True)
-        james = User(firm_id="firm-demo", email="j.rodriguez@demo.com", name="James Rodriguez", role="ASSOCIATE", password_hash=PASSWORD_HASH, email_verified=True)
-        admin = User(firm_id="firm-demo", email="admin@demo.com", name="Admin User", role="ADMIN", password_hash=PASSWORD_HASH, email_verified=True)
-        db.add_all([sarah, james, admin])
-        await db.flush()
+        sarah = await get_or_create_user(db, "sarah.chen@demo.com", "Sarah Chen", "PARTNER")
+        await get_or_create_user(db, "j.rodriguez@demo.com", "James Rodriguez", "ASSOCIATE")
+        await get_or_create_user(db, "admin@demo.com", "Admin User", "ADMIN")
 
-        case1 = Case(id="seed-case-chen-v-metro", firm_id="firm-demo", owner_id=sarah.id, case_name="Chen v. Metropolitan Hospital", case_type="MEDICAL_MALPRACTICE", opposing_party="Defense Partners LLP")
-        case2 = Case(id="seed-case-thompson-v-axiom", firm_id="firm-demo", owner_id=sarah.id, case_name="Thompson v. Axiom Industries", case_type="EMPLOYMENT_DISCRIMINATION", opposing_party="Axiom Legal Team")
-        db.add_all([case1, case2])
-        await db.flush()
+        case1 = await get_or_create_case(db, "seed-case-chen-v-metro", sarah.id, "Chen v. Metropolitan Hospital", "MEDICAL_MALPRACTICE", "Defense Partners LLP")
+        await get_or_create_case(db, "seed-case-thompson-v-axiom", sarah.id, "Thompson v. Axiom Industries", "EMPLOYMENT_DISCRIMINATION", "Axiom Legal Team")
 
-        witness = Witness(id="seed-witness-emily-chen", case_id=case1.id, firm_id="firm-demo", name="Dr. Emily Chen", email="emily.chen@metro.com", role="DEFENDANT", notes="Known weakness: medication dosage timeline discrepancy")
-        db.add(witness)
+        await get_or_create_witness(db, "seed-witness-emily-chen", case1.id, "Dr. Emily Chen", "emily.chen@metro.com", "DEFENDANT", "Known weakness: medication dosage timeline discrepancy")
 
         await db.commit()
-        print("✅ Seed complete")
-        print(f"   firm_id : firm-demo")
-        print(f"   users   : {sarah.id}, {james.id}, {admin.id}")
-        print(f"   cases   : {case1.id}, {case2.id}")
-        print(f"   witness : {witness.id}")
-        print("\nLogin: sarah.chen@demo.com / Demo!Pass123")
+        print("\n✅ Seed complete — Login: sarah.chen@demo.com / Demo!Pass123")
 
 
 if __name__ == "__main__":
