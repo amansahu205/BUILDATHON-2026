@@ -20,7 +20,11 @@ export const briefsService = {
   getGenerationStatus: async (sessionId: string): Promise<{ progress: number; eta: number; briefId?: string }> => {
     try {
       const { data: resp } = await api.get(`/briefs/generate/${sessionId}/status`);
-      return resp.data;
+      return {
+        progress: resp.data?.progress ?? 0,
+        eta: resp.data?.eta ?? 30,
+        briefId: resp.data?.briefId ?? undefined,
+      };
     } catch {
       return { progress: 100, eta: 0 };
     }

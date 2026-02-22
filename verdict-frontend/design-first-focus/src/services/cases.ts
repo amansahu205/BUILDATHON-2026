@@ -20,9 +20,9 @@ export const casesService = {
 
   create: async (payload: CreateCaseRequest): Promise<Case> => {
     const { data: resp } = await api.post("/cases/", {
-      name: payload.name,
+      caseName: payload.name,
       caseType: mapCaseTypeToBackend(payload.caseType),
-      opposingFirm: payload.opposingFirm,
+      opposingParty: payload.opposingFirm,
       depositionDate: payload.depositionDate,
     });
     return mapCase(resp.data);
@@ -137,9 +137,9 @@ function mapDocStatusToFrontend(status: string): CaseDocument["status"] {
 function mapCase(raw: Record<string, unknown>): Case {
   return {
     id: raw.id as string,
-    name: raw.name as string,
+    name: (raw.caseName ?? raw.name) as string,
     caseType: mapCaseTypeToFrontend(raw.caseType as string),
-    opposingFirm: raw.opposingFirm as string | undefined,
+    opposingFirm: (raw.opposingParty ?? raw.opposingFirm) as string | undefined,
     depositionDate: raw.depositionDate as string,
     witnessCount: (raw.witnessCount as number) ?? 0,
     documentCount: (raw.documentCount as number) ?? 0,

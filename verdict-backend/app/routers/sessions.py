@@ -2,7 +2,7 @@ import json
 import time
 import base64
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -15,6 +15,7 @@ from app.models.witness import Witness
 from app.models.case import Case
 from app.models.session_event import SessionEvent
 from app.models.alert import Alert
+from app.models.brief import Brief
 from app.agents.interrogator import generate_question
 from app.agents.objection import analyze_for_objections
 from app.agents.detector import detect_inconsistency
@@ -248,10 +249,11 @@ async def create_session(
 @router.post("/{session_id}/end")
 async def end_session(
     session_id: str,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_auth),
 ):
-    """End an active session and mark it as COMPLETE."""
+    """End an active session, mark it COMPLETE, and auto-trigger brief generation."""
     result = await db.execute(
         select(Session).where(Session.id == session_id, Session.firm_id == user.firm_id)
     )
@@ -268,6 +270,27 @@ async def end_session(
     session.status = "COMPLETE"
     session.ended_at = datetime.utcnow()
     await db.commit()
+
+    # Auto-trigger brief generation if not already started
+    existing_brief = await db.execute(select(Brief).where(Brief.session_id == session_id))
+    if not existing_brief.scalar_one_or_none():
+        brief = Brief(
+            session_id=session_id,
+            firm_id=user.firm_id,
+            witness_id=session.witness_id,
+            session_score=0,
+            consistency_rate=0.0,
+            confirmed_flags=0,
+            objection_count=0,
+            composure_alerts=0,
+            top_recommendations=[],
+            narrative_text="Generating...",
+        )
+        db.add(brief)
+        await db.commit()
+        await db.refresh(brief)
+        from app.routers.briefs import _generate_brief_background
+        background_tasks.add_task(_generate_brief_background, session_id, brief.id)
 
     return {
         "success": True,

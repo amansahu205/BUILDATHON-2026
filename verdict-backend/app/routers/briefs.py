@@ -25,6 +25,65 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+@router.get("/generate/{session_id}/status")
+async def brief_generation_status(
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_auth),
+):
+    """Poll brief generation status for a session.
+
+    Returns progress (0-100), eta, and briefId once complete.
+    Used by PostSessionPage to display the generation progress screen.
+    """
+    result = await db.execute(
+        select(Brief).where(Brief.session_id == session_id, Brief.firm_id == user.firm_id)
+    )
+    brief = result.scalar_one_or_none()
+
+    if not brief:
+        # Brief not yet triggered — auto-trigger it
+        session_result = await db.execute(
+            select(Session).where(Session.id == session_id, Session.firm_id == user.firm_id)
+        )
+        session = session_result.scalar_one_or_none()
+        if not session:
+            return {"success": True, "data": {"progress": 0, "eta": 30, "briefId": None}}
+
+        brief = Brief(
+            session_id=session_id,
+            firm_id=user.firm_id,
+            witness_id=session.witness_id,
+            session_score=0,
+            consistency_rate=0.0,
+            confirmed_flags=0,
+            objection_count=0,
+            composure_alerts=0,
+            top_recommendations=[],
+            narrative_text="Generating...",
+        )
+        db.add(brief)
+        await db.commit()
+        await db.refresh(brief)
+
+        from fastapi import BackgroundTasks
+        # Can't inject BackgroundTasks here; use asyncio task instead
+        import asyncio
+        asyncio.create_task(_generate_brief_background(session_id, brief.id))
+
+        return {"success": True, "data": {"progress": 5, "eta": 25, "briefId": None}}
+
+    narrative = brief.narrative_text or ""
+    if narrative.startswith("Generation failed"):
+        return {"success": True, "data": {"progress": 100, "eta": 0, "briefId": brief.id}}
+    if brief.session_score and brief.session_score > 0 and "Generating" not in narrative:
+        return {"success": True, "data": {"progress": 100, "eta": 0, "briefId": brief.id}}
+    if narrative == "Generating...":
+        return {"success": True, "data": {"progress": 40, "eta": 15, "briefId": None}}
+
+    return {"success": True, "data": {"progress": 80, "eta": 5, "briefId": None}}
+
+
 @router.post("/generate/{session_id}")
 async def trigger_brief_generation(
     session_id: str,
