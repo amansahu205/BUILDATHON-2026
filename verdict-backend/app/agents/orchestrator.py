@@ -1,11 +1,53 @@
 import json
+import re
 from app.services.claude import claude_chat
 from app.services.elevenlabs import text_to_speech
 from app.config import settings
 
 ORCHESTRATOR_SYSTEM = """You are an elite litigation coach reviewing a completed deposition practice session.
 Analyze the session transcript, alerts, and performance data to generate a comprehensive coaching brief.
-Respond ONLY with valid JSON matching the exact format specified. No preamble, no markdown."""
+Respond ONLY with valid JSON matching the exact format specified.
+STRICT RULES:
+- No preamble, no markdown, no code fences around the JSON
+- All string values must be on a single line; use \\n for paragraph breaks, never literal newlines inside string values
+- No trailing commas
+- No comments"""
+
+
+def _extract_json(text: str) -> dict:
+    """Robustly extract JSON from Claude response, handling fences and literal newlines."""
+    cleaned = text.strip()
+
+    # 1. Strip markdown code fences with regex
+    fence = re.search(r'```(?:json)?\s*([\s\S]*?)```', cleaned)
+    if fence:
+        cleaned = fence.group(1).strip()
+
+    # 2. Try direct parse
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        pass
+
+    # 3. Find the outermost { ... } block
+    start = cleaned.find('{')
+    end = cleaned.rfind('}')
+    if start != -1 and end != -1 and end > start:
+        candidate = cleaned[start:end + 1]
+        try:
+            return json.loads(candidate)
+        except json.JSONDecodeError:
+            # 4. Replace literal newlines inside string values and retry
+            sanitized = re.sub(r'(?<!\\)\n', r'\\n', candidate)
+            try:
+                return json.loads(sanitized)
+            except json.JSONDecodeError:
+                pass
+
+    raise ValueError(
+        f"Could not extract valid JSON from orchestrator response. "
+        f"First 300 chars: {text[:300]}"
+    )
 
 
 async def generate_brief(
@@ -39,12 +81,12 @@ Full Transcript:
 Alerts Fired:
 {alerts_text}
 
-Generate a coaching brief as JSON:
+Generate a coaching brief as JSON (ALL strings must be single-line, use \\n for paragraph breaks):
 {{
   "sessionScore": <integer 0-100>,
   "consistencyRate": <float 0.0-1.0>,
   "topRecommendations": ["<rec 1>", "<rec 2>", "<rec 3>"],
-  "narrativeText": "<2-3 paragraph coaching narrative>",
+  "narrativeText": "<coaching narrative using \\n for paragraph breaks, no literal newlines>",
   "weaknessMapScores": {{
     "composure": <0-100>, "tactical_discipline": <0-100>, "professionalism": <0-100>,
     "directness": <0-100>, "consistency": <0-100>
@@ -55,16 +97,12 @@ Generate a coaching brief as JSON:
 }}"""
 
     raw = await claude_chat(ORCHESTRATOR_SYSTEM, prompt, max_tokens=1500)
-    # Strip markdown code fences if Claude wrapped the JSON
-    cleaned = raw.strip()
-    if cleaned.startswith("```"):
-        cleaned = cleaned.split("```")[1]
-        if cleaned.startswith("json"):
-            cleaned = cleaned[4:]
-        cleaned = cleaned.strip()
-    brief_data = json.loads(cleaned)
+    brief_data = _extract_json(raw)
 
-    narration = f"Session complete. Your overall score is {brief_data['sessionScore']} out of 100. {brief_data['narrativeText']}"
+    narration = (
+        f"Session complete. Your overall score is {brief_data['sessionScore']} out of 100. "
+        f"{brief_data.get('narrativeText', '')}"
+    )
     try:
         audio_bytes = await text_to_speech(narration, settings.ELEVENLABS_COACH_VOICE_ID)
         brief_data["coachAudioBytes"] = audio_bytes
