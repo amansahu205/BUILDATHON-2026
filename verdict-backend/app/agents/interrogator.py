@@ -1,20 +1,14 @@
 from typing import AsyncGenerator
+
 from app.services.claude import claude_stream
 from app.services.nia import search_index
-
-INTERROGATOR_SYSTEM = """You are a highly skilled opposing counsel conducting a deposition.
-Your goal is to expose inconsistencies in the witness's testimony.
-You ask ONE focused question at a time. Questions are precise, legally professional.
-You adapt based on the witness's prior answers and detected hesitations.
-NEVER ask compound questions. NEVER reveal your strategy.
-Format: Return only the question text, no preamble."""
+from .prompt import build_system_prompt
+from .models import VerdictCase
 
 
 async def generate_question(
-    case_type: str,
-    witness_role: str,
+    case: VerdictCase,
     current_topic: str,
-    aggression_level: str,
     nia_session_context_id: str,
     question_number: int,
     prior_answer: str = None,
@@ -22,6 +16,8 @@ async def generate_question(
     recent_inconsistency_flag: bool = False,
     prior_weak_areas: list[str] = None,
 ) -> AsyncGenerator[str, None]:
+
+    system_prompt = build_system_prompt(case)
 
     nia_context = []
     if prior_answer:
@@ -35,7 +31,10 @@ async def generate_question(
         "STANDARD": "Ask methodically. Allow witness to elaborate.",
         "ELEVATED": "Press on contradictions. Use controlled silence.",
         "HIGH_STAKES": "Maximum pressure. Expose inconsistencies directly. Demand specifics.",
-    }.get(aggression_level, "Ask methodically.")
+        "Low": "Ask methodically. Allow witness to elaborate.",
+        "Medium": "Press on contradictions. Use controlled silence.",
+        "High": "Maximum pressure. Expose inconsistencies directly. Demand specifics.",
+    }.get(case.aggression_level, "Ask methodically.")
 
     nia_lines = ""
     if nia_context:
@@ -43,8 +42,8 @@ async def generate_question(
             f'- "{r.get("content", "")}"' for r in nia_context
         )
 
-    user_message = f"""Case type: {case_type}
-Witness role: {witness_role}
+    user_message = f"""Case type: {case.case_type}
+Witness role: {case.witness_role}
 Current focus topic: {current_topic}
 Question number: {question_number}
 {f'Witness last answered: "{prior_answer}"' if prior_answer else 'First question on this topic.'}
@@ -56,5 +55,5 @@ Aggression instruction: {aggression_instructions}
 
 Generate the next deposition question:""".strip()
 
-    async for chunk in claude_stream(INTERROGATOR_SYSTEM, user_message, max_tokens=200):
+    async for chunk in claude_stream(system_prompt, user_message, max_tokens=200):
         yield chunk
