@@ -238,7 +238,7 @@ async def _generate_brief_background(session_id: str, brief_id: str):
                 upload_bytes(pdf_key, pdf_buf.read(), "application/pdf")
                 brief.pdf_s3_key = pdf_key
             except Exception as exc:
-                logger.warning("PDF generation failed: %s", exc)
+                logger.error("PDF generation failed", exc_info=True)
 
             if brief_data.get("coachAudioBytes"):
                 try:

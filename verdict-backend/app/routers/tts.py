@@ -10,7 +10,7 @@ import io
 from app.config import settings
 from app.services.elevenlabs2 import elevenlabs_service
 
-router = APIRouter(prefix="/api/tts", tags=["tts"])
+router = APIRouter(tags=["tts"])
 
 
 class CoachingBriefRequest(BaseModel):

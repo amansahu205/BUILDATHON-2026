@@ -4,7 +4,7 @@ import httpx
 from app.config import settings
 from app.services.elevenlabs2 import elevenlabs_service
 
-router = APIRouter(prefix="/api/conversations", tags=["conversations"])
+router = APIRouter(tags=["conversations"])
 
 
 @router.get("")
