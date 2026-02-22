@@ -34,7 +34,7 @@
 │                        VERDICT PLATFORM                          │
 │                                                                   │
 │  ┌──────────────┐   ┌──────────────────────────────────────────┐ │
-│  │  Vite+React  │   │            Fastify API Server             │ │
+│  │  Vite+React  │   │             FastAPI Server                │ │
 │  │  (Frontend)  │◄──┤  ┌──────────┐ ┌──────────┐ ┌─────────┐  │ │
 │  │  Port 5173   │   │  │  Cases   │ │ Sessions │ │  Auth   │  │ │
 │  └──────┬───────┘   │  │  routes  │ │  routes  │ │  routes │  │ │
@@ -72,7 +72,7 @@
 | Decision | Rationale |
 |---------|-----------|
 | **Vite + React SPA** for frontend | Fastest iteration speed for hackathon; Vite's HMR is near-instant. Lovable-generated codebase uses this stack, so it was the natural choice. Future: add SSR via React Router v7 or migrate to Next.js when SSR becomes a priority. |
-| **Fastify** over Express | 2x throughput on JSON-heavy AI response streaming; native TypeScript support; schema validation built-in. Objection Copilot fires ≤1.5s — every ms matters. |
+| **FastAPI** over Flask/Django | Native async/await for AI streaming; automatic OpenAPI docs; Pydantic v2 validation built-in. Objection Copilot fires ≤1.5s — every ms matters. |
 | **PostgreSQL** over MongoDB | Case data is highly relational (firms → cases → witnesses → sessions → flags → briefs). ACID compliance mandatory for legal data integrity. |
 | **Redis** over in-memory | Session events buffered every 60 seconds (PRD §8.4). Redis pub/sub enables live alert fan-out across WebSocket connections without data loss on server restart. |
 | **REST + SSE** over raw WebSocket (current) | Simpler to implement in hackathon window; SSE handles streaming AI responses from Interrogator Agent. Socket.io can be added later for bi-directional live session events. |
@@ -185,28 +185,29 @@ The following packages are specified in the PRD but **not yet installed** in the
 
 ### Runtime
 
-**Node.js 22.13.0 LTS**
-- Docs: https://nodejs.org/docs/latest-v22.x/api/
-- License: MIT
-- Reason: LTS release — security patches until April 2027. Native `fetch` API eliminates one dependency. `AsyncLocalStorage` for request-scoped context (tenant isolation per API call). Worker threads for CPU-bound PDF generation without blocking the event loop.
+**Python 3.12**
+- Reason: Team's primary language. Excellent async support via asyncio.
+  Native compatibility with all AI/ML SDKs (anthropic, elevenlabs, httpx).
+- ASGI server: Uvicorn 0.34.0 with uvloop for high-performance async I/O.
 
 ### Framework
 
-**Fastify 5.2.1**
-- Docs: https://fastify.dev/docs/latest/
+**FastAPI 0.115.6**
+- Docs: https://fastapi.tiangolo.com
 - License: MIT
-- Reason: Schema-first JSON validation via JSON Schema / Zod. Native TypeScript support. 2x throughput vs Express on identical hardware — critical when Objection Copilot must fire ≤1.5 seconds after question delivery. Plugin architecture maps cleanly to VERDICT's module boundaries (Cases, Sessions, Auth, AI, Admin).
+- Reason: Native async/await, automatic OpenAPI docs, Pydantic v2 validation
+  built-in. StreamingResponse handles SSE for Interrogator question streaming.
+  Dependency injection via Depends() maps cleanly to auth middleware pattern.
 - Alternatives rejected:
-  - **Express 5**: No built-in schema validation; request lifecycle is less structured; slower JSON serialization.
-  - **NestJS**: Excellent architecture but decorator magic + DI container adds boot time; VERDICT's module count doesn't justify it at hackathon scale.
-  - **Hono**: Too minimal — lacks plugin ecosystem needed for file upload, SAML, and WebSocket in one framework.
+  - **Flask**: Sync-first, requires extra work for async AI streaming.
+  - **Django**: Too heavy for API-only service.
 
 ### WebSocket Server
 
-**Socket.io 4.8.1** (server)
-- Docs: https://socket.io/docs/v4/server-api/
-- License: MIT
-- Reason: Fastify plugin `@fastify/socket.io 3.0.0` integrates cleanly. Redis adapter enables horizontal scaling (multiple Fastify instances share the same session room). Named events map directly to VERDICT's alert types: `objection_alert`, `inconsistency_alert`, `composure_alert`, `interrogator_question`, `session_state_change`.
+**FastAPI WebSockets** (built-in)
+- Reason: Native WebSocket support in FastAPI via `WebSocket` class.
+  No additional dependency needed. Redis pub/sub handles fan-out across
+  multiple server instances.
 
 ### Database
 
@@ -221,14 +222,15 @@ The following packages are specified in the PRD but **not yet installed** in the
 
 ### ORM
 
-**Prisma 6.3.1**
-- Docs: https://www.prisma.io/docs
-- License: Apache-2.0
-- Reason: Schema-first — `schema.prisma` is the single source of truth for database types, shared with TypeScript via generated client. Prisma Migrate handles the full migration history. Connection pooling via `prisma.$pool` with PgBouncer support for production.
+**SQLAlchemy 2.0.36** + **Alembic 1.14.0**
+- Docs: https://docs.sqlalchemy.org/en/20/ | https://alembic.sqlalchemy.org
+- License: MIT / MIT
+- Reason: Industry-standard Python ORM. SQLAlchemy 2.0 async API with asyncpg
+  driver matches high-performance async requirements. Alembic handles migration history.
+  All 11 models defined as Python classes in app/models/.
 - Alternatives rejected:
-  - **Drizzle ORM**: Less mature migration tooling; team less familiar.
-  - **TypeORM**: Decorator-heavy; struggles with Fastify's non-class-based architecture.
-  - **Raw pg / postgres.js**: Too much manual SQL for a 48-hour window; no type safety on query results.
+  - **Tortoise ORM**: Less mature, smaller ecosystem.
+  - **Django ORM**: Tied to Django framework.
 
 ### Caching & Session Store
 
@@ -236,44 +238,29 @@ The following packages are specified in the PRD but **not yet installed** in the
 - Docs: https://redis.io/docs/latest/
 - License: RSALv2 / SSPLv1 (server); MIT (client libraries)
 
-**ioredis 5.4.1** (Node.js client)
-- Docs: https://github.com/redis/ioredis
+**redis-py 5.2.1** (async)
+- Docs: https://redis-py.readthedocs.io
 - License: MIT
-- Reason: Session event buffering (60-second auto-save, PRD §8.4). Socket.io Redis adapter for WebSocket horizontal scaling. Rate limiting counters (Inconsistency Detector API call rate). Witness token storage with TTL (72-hour automatic expiry). Brief share token with 7-day TTL.
-- Alternatives rejected:
-  - **node-redis**: Less mature TypeScript types; ioredis has better Cluster support.
-  - **Memcached**: No pub/sub (required by Socket.io adapter); no TTL-based token management.
+- Used via: `redis.asyncio.from_url(REDIS_URL)`
+- Reason: Session event buffering (60-second auto-save, PRD §8.4). Redis pub/sub for WebSocket horizontal scaling. Rate limiting counters. Witness token storage with TTL (72-hour automatic expiry). Brief share token with 7-day TTL.
 
 ### Authentication
 
 **JWT (JSON Web Tokens)**
 
-**jsonwebtoken 9.0.2**
-- Docs: https://github.com/auth0/node-jsonwebtoken
-- License: MIT
-- Reason: Stateless auth for attorney sessions. Short-lived access tokens (8 hours for enterprise, per PRD §6.6) + long-lived refresh tokens. Claims include: `firmId`, `userId`, `role`, `email`.
-
-**@node-saml/passport-saml 5.0.1** (SAML 2.0 / SSO)
-- Docs: https://github.com/node-saml/passport-saml
-- License: MIT
-- Reason: Enterprise SSO requirement (Okta, Azure AD, iManage SAML IdPs). PRD §1.3 specifies SAML 2.0 as the primary enterprise auth method.
-
-**passport 0.7.0**
-- Docs: https://www.passportjs.org/docs/
-- License: MIT
-- Reason: Strategy pattern handles both SAML SSO and local email/password in the same auth middleware pipeline.
-
-**bcrypt 5.1.1** (password hashing)
-- Docs: https://github.com/kelektiv/node.bcrypt.js
-- License: MIT
-- Reason: Adaptive hashing for email/password accounts. Cost factor: 12 (see §11 Security).
-
-**@fastify/jwt 9.0.1** (Fastify plugin)
-- Docs: https://github.com/fastify/fastify-jwt
+**python-jose[cryptography] 3.3.0** — JWT encode/decode
+- Docs: https://python-jose.readthedocs.io
 - License: MIT
 
-**nanoid 5.0.9** (token generation for witness links and brief share tokens)
-- Docs: https://github.com/ai/nanoid
+**passlib[bcrypt] 1.7.4** — password hashing (bcrypt cost factor 12)
+- Docs: https://passlib.readthedocs.io
+- License: BSD
+
+**FastAPI security** — HTTPBearer dependency for route protection
+- Reason: Stateless auth for attorney sessions. Short-lived access tokens (8 hours) + long-lived refresh tokens. Claims include: `firmId`, `userId`, `role`, `email`.
+
+**nanoid 2.0.0** (token generation for witness links and brief share tokens)
+- Docs: https://github.com/puyuan/py-nanoid
 - License: MIT
 - Reason: Cryptographically secure URL-safe token IDs. 24-character tokens provide 144 bits of entropy — sufficient for the 7-day share token and 72-hour witness token.
 
@@ -284,7 +271,7 @@ The following packages are specified in the PRD but **not yet installed** in the
 **@aws-sdk/client-s3 3.726.1**
 - Docs: https://docs.aws.amazon.com/AWSJavaScriptSDK/v3/latest/client/s3/
 - License: Apache-2.0
-- Reason: Up to 200MB document uploads (PRD §P0.4). S3 multipart upload for files >5MB. Pre-signed URLs for direct browser-to-S3 upload (bypasses Fastify for large files). Separate buckets per firm (case data isolation). Lifecycle policy: auto-delete after 90 days (PRD §8.2).
+- Reason: Up to 200MB document uploads (PRD §P0.4). S3 multipart upload for files >5MB. Pre-signed URLs for direct browser-to-S3 upload (bypasses the API server for large files). Separate buckets per firm (case data isolation). Lifecycle policy: auto-delete after 90 days (PRD §8.2).
 - Alternatives rejected:
   - **Cloudinary**: Image/video CDN — wrong tool for PDF/DOCX.
   - **Vercel Blob**: 500MB max per file vs S3's 5TB; less control over access policies.
@@ -292,7 +279,7 @@ The following packages are specified in the PRD but **not yet installed** in the
 
 **@aws-sdk/s3-request-presigner 3.726.1**
 - License: Apache-2.0
-- Reason: Generates pre-signed URLs for direct browser uploads without routing through Fastify.
+- Reason: Generates pre-signed URLs for direct browser uploads without routing through the API server.
 
 **@aws-sdk/lib-storage 3.726.1**
 - License: Apache-2.0
@@ -333,21 +320,27 @@ The following packages are specified in the PRD but **not yet installed** in the
 - License: MIT
 - Reason: Build email templates as React components with TypeScript type safety.
 
-### API Rate Limiting & Validation
+### Validation
 
-**@fastify/rate-limit 10.2.1**
-- Docs: https://github.com/fastify/fastify-rate-limit
+**Pydantic v2 (2.10.4)** + **pydantic-settings 2.7.0**
+- Docs: https://docs.pydantic.dev/latest/
 - License: MIT
+- Request/response schemas in `app/schemas/`
+- Settings/env management in `app/config.py` via `BaseSettings`
+- Frontend still uses Zod for client-side validation (unchanged)
+
+**python-multipart 0.0.20** (file upload handling)
+- Docs: https://multipart.fastapiexpert.com
+- License: Apache-2.0
+- Reason: Required by FastAPI for `multipart/form-data` file uploads.
+
+### API Rate Limiting
+
+**slowapi** (Redis-backed rate limiting via FastAPI middleware)
 - Reason: Route-level rate limits for AI endpoints (Inconsistency Detector, Objection Copilot). Redis-backed so limits are shared across all server instances.
 
-**@fastify/multipart 9.0.3** (file upload handling)
-- Docs: https://github.com/fastify/fastify-multipart
-- License: MIT
-- Reason: Streams large document uploads to S3 without buffering the entire file in memory.
-
-**@fastify/cors 10.0.2**
-- Docs: https://github.com/fastify/fastify-cors
-- License: MIT
+**FastAPI CORSMiddleware** (built-in via Starlette)
+- Reason: CORS configuration via `app.add_middleware(CORSMiddleware, ...)` — no separate package needed.
 
 ---
 
@@ -355,7 +348,7 @@ The following packages are specified in the PRD but **not yet installed** in the
 
 ### Anthropic Claude SDK (Primary AI Orchestration)
 
-**@anthropic-ai/sdk 0.36.3**
+**anthropic 0.40.0** (Python SDK)
 - Docs: https://docs.anthropic.com/en/api/getting-started
 - License: MIT
 - Model used: `claude-sonnet-4-20250514`
@@ -368,7 +361,7 @@ The following packages are specified in the PRD but **not yet installed** in the
 
 ### ElevenLabs (Voice AI)
 
-**elevenlabs 1.14.0**
+**elevenlabs 1.13.5** (Python SDK)
 - Docs: https://elevenlabs.io/docs/developer-guides/quickstart
 - License: MIT
 - Roles:
@@ -383,7 +376,7 @@ The following packages are specified in the PRD but **not yet installed** in the
 
 ### NVIDIA Nemotron API (Reasoning & Scoring)
 
-**HTTP Client: Axios 1.7.9** (no official Node.js SDK — REST API only)
+**HTTP Client: httpx 0.28.1** (no official Python SDK — REST API only)
 - Docs: https://build.nvidia.com/explore/discover
 - API Base: `https://integrate.api.nvidia.com/v1`
 - Model: `nvidia/llama-3.1-nemotron-ultra-253b-v1`
@@ -393,7 +386,7 @@ The following packages are specified in the PRD but **not yet installed** in the
 
 ### Nozomio Nia API (Document Indexing & RAG)
 
-**HTTP Client: Axios 1.7.9** (Nia MCP server integration)
+**HTTP Client: httpx 0.28.1** (async client via `httpx.AsyncClient`)
 - Docs: Provided via hackathon Nia API documentation
 - Role: 
   - FRE rules corpus indexing (Objection Copilot knowledge base)
@@ -428,7 +421,7 @@ The following packages are specified in the PRD but **not yet installed** in the
 
 ## 5. DATABASE SCHEMA & DATA LAYER
 
-### Core Schema (Prisma)
+### Core Schema (SQLAlchemy / original Prisma spec)
 
 ```prisma
 // prisma/schema.prisma
@@ -674,7 +667,7 @@ model Brief {
 
 ### Migration Strategy
 
-- **Tool:** Prisma Migrate (`prisma migrate dev` for development, `prisma migrate deploy` for production CI)
+- **Tool:** Alembic (`alembic revision --autogenerate` for development, `alembic upgrade head` for production CI)
 - **Naming convention:** `YYYYMMDD_HHMMSS_description` (e.g., `20260221_120000_add_behavioral_sentinel_columns`)
 - **Production deploys:** Migration runs in CI before server restart; Prisma's `migrate deploy` is safe for additive changes (add column, add table). Destructive changes (drop column) require a two-phase deploy: first shadow the column, then drop after server restart.
 - **Branching:** Each feature branch creates its own migration file; migrations are squashed before merging to `main`.
@@ -686,7 +679,7 @@ model Brief {
 // Development seeds: 1 firm, 3 users (partner + associate + admin), 
 // 2 cases (Medical Malpractice, Employment Discrimination),
 // 5 documents, 3 witnesses, 3 complete sessions with alerts + briefs
-// Run: npx prisma db seed
+// Run: python scripts/seed.py
 ```
 
 ### Backup Policy
@@ -702,7 +695,7 @@ model Brief {
 
 **Hackathon:** Prisma built-in connection pool (`connection_limit=10` in DATABASE_URL)  
 **Production:** PgBouncer in transaction mode via `DATABASE_URL` pointing to pooler endpoint  
-**Max connections:** PostgreSQL configured at 100; PgBouncer pools to 20 per Fastify instance
+**Max connections:** PostgreSQL configured at 100; PgBouncer pools to 20 per FastAPI instance
 
 ---
 
@@ -726,7 +719,7 @@ Commit convention: Conventional Commits
   feat(sessions): add witness token expiry validation
   fix(alerts): prevent duplicate inconsistency flags on retry
   chore(deps): bump @anthropic-ai/sdk from 0.35.0 to 0.36.3
-  docs(api): add Fastify route JSDoc for alert endpoints
+  docs(api): add FastAPI router docstrings for alert endpoints
 
 Hackathon exception: Direct commits to `main` permitted during 48-hour window.
 ```
@@ -759,18 +752,20 @@ jobs:
         image: redis:7.4.1
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - uses: actions/setup-node@v4
         with:
           node-version: '22.13.0'
           cache: 'npm'
-      - run: npm ci
-      - run: npx prisma migrate deploy
+      - run: cd verdict-backend && pip install -r requirements.txt
+      - run: cd verdict-backend && alembic upgrade head
         env:
           DATABASE_URL: postgresql://postgres:test@localhost:5432/verdict_test
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm run test:unit
-      - run: npm run test:integration
+      - run: cd verdict-frontend/design-first-focus && npm ci
+      - run: cd verdict-frontend/design-first-focus && npm run lint
+      - run: cd verdict-frontend/design-first-focus && npm run test
 
   e2e:
     runs-on: ubuntu-latest
@@ -822,14 +817,15 @@ jobs:
 
 **Hackathon (Railway):**
 - Starter plan ($5/month)
-- Single Fastify container
+- Single Uvicorn/FastAPI container
 - Auto-deploy from `main` via Railway GitHub integration
+- Start command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
 - Internal URL exposed to Vercel via `BACKEND_URL` env var
 
 **Production v1.0 (Fly.io):**
-- 2× `performance-2x` machines (4 CPU, 8GB RAM — needed for Puppeteer PDF generation)
+- 2× `performance-2x` machines (4 CPU, 8GB RAM)
 - Deployed in `iad` (Virginia) and `lhr` (London) regions — proximity to US/UK law firms
-- Socket.io horizontal scaling via Redis adapter (all machines share Redis pub/sub)
+- WebSocket horizontal scaling via Redis pub/sub (all machines share Redis events)
 
 **Deployment command:**
 ```bash
@@ -869,11 +865,9 @@ fly deploy --config fly.toml --dockerfile Dockerfile.production
 - 1-minute check interval on `/api/v1/health`
 - SMS + email alert on downtime
 
-**Logging: Pino 9.6.0** (Fastify built-in logger)
-- Docs: https://getpino.io
-- License: MIT
+**Logging: Python `logging` + Uvicorn access logs**
 - Structured JSON logs → Railway log drain → Logtail (hackathon) → AWS CloudWatch (production)
-- Log levels: `error` for production, `info` for staging, `debug` for development
+- Log levels: `ERROR` for production, `INFO` for staging, `DEBUG` for development
 
 **Analytics: PostHog 1.6.0**
 - Docs: https://posthog.com/docs
@@ -885,7 +879,7 @@ fly deploy --config fly.toml --dockerfile Dockerfile.production
 **Unit & Integration: Vitest 2.1.8**
 - Docs: https://vitest.dev/guide/
 - License: MIT
-- Reason: 10x faster than Jest for TypeScript; native ESM; compatible with the entire Fastify test ecosystem. `vitest.config.ts` targets all `*.test.ts` files in `/src`.
+- Reason: 10x faster than Jest for TypeScript; native ESM. `vitest.config.ts` targets all `*.test.ts` files in the frontend `/src`. Backend uses `pytest` with `httpx.AsyncClient` for integration tests.
 
 **E2E: Playwright 1.50.1**
 - Docs: https://playwright.dev/docs/intro
@@ -1054,7 +1048,7 @@ NEXT_PUBLIC_MEDIAPIPE_MODEL_URL="/models/face_landmarker.task"
 NEXT_PUBLIC_BEHAVIORAL_SENTINEL_ENABLED="false"
 ```
 
-### Backend (Fastify — `.env`)
+### Backend (FastAPI — `.env`)
 
 ```bash
 # App
@@ -1143,35 +1137,34 @@ RATE_LIMIT_UPLOAD_PER_HOUR="50"
 
 ---
 
-## 9. PACKAGE.JSON SCRIPTS
+## 9. PACKAGE SCRIPTS
 
 > **Repository layout (actual):**
 > ```
 > BUILDATHON-2026/
-> ├── verdict-backend/          ← Fastify API
+> ├── verdict-backend/          ← FastAPI (Python)
 > ├── verdict-frontend/
 > │   └── design-first-focus/  ← Vite + React SPA
 > └── docs/
 > ```
 
-### `verdict-backend/package.json` scripts (actual)
+### `verdict-backend/` commands (Python/FastAPI)
 
-```json
-{
-  "scripts": {
-    "dev":                "tsx watch src/index.ts",
-    "build":              "tsc -p tsconfig.build.json",
-    "start":              "node dist/index.js",
-    "db:generate":        "prisma generate",
-    "db:migrate":         "prisma migrate dev",
-    "db:migrate:deploy":  "prisma migrate deploy",
-    "db:push":            "prisma db push",
-    "db:seed":            "tsx prisma/seed.ts",
-    "db:studio":          "prisma studio",
-    "lint":               "eslint src --ext .ts",
-    "typecheck":          "tsc --noEmit"
-  }
-}
+```bash
+# Start dev server
+uvicorn app.main:app --reload --port 4000
+
+# Run migrations
+alembic upgrade head
+
+# Seed database
+python scripts/seed.py
+
+# Generate new migration
+alembic revision --autogenerate -m "description"
+
+# Run server (production)
+python run.py
 ```
 
 ### `verdict-frontend/design-first-focus/package.json` scripts (actual)
@@ -1194,19 +1187,20 @@ RATE_LIMIT_UPLOAD_PER_HOUR="50"
 
 ```powershell
 # Start backend dev server (port 4000)
-cd verdict-backend && npm run dev
+cd verdict-backend
+uvicorn app.main:app --reload --port 4000
 
 # Start frontend dev server (port 5173)
 cd verdict-frontend/design-first-focus && npm run dev
 
 # Run both in parallel (PowerShell)
-Start-Process powershell -ArgumentList "cd verdict-backend; npm run dev"
+Start-Process powershell -ArgumentList "cd verdict-backend; uvicorn app.main:app --reload --port 4000"
 Start-Process powershell -ArgumentList "cd verdict-frontend/design-first-focus; npm run dev"
 
 # Database operations (from verdict-backend/)
-npm run db:migrate    # create + apply migration
-npm run db:seed       # seed with demo data
-npm run db:studio     # open Prisma Studio GUI
+alembic upgrade head          # apply all migrations
+python scripts/seed.py        # seed with demo data
+alembic history               # view migration history
 ```
 
 ---
@@ -1282,51 +1276,30 @@ npm run db:studio     # open Prisma Studio GUI
 }
 ```
 
-### Backend Dependencies — `verdict-backend/package.json` (actual installed)
+### Backend Dependencies — `verdict-backend/requirements.txt` (actual installed)
 
-```json
-{
-  "dependencies": {
-    "fastify": "^5.2.1",
-    "@fastify/cors": "^10.0.2",
-    "@fastify/jwt": "^9.0.1",
-    "@fastify/rate-limit": "^10.2.1",
-    "@prisma/client": "^6.3.1",
-    "@anthropic-ai/sdk": "^0.36.3",
-    "elevenlabs": "^1.14.0",
-    "axios": "^1.7.9",
-    "bcrypt": "^5.1.1",
-    "dotenv": "^16.4.7",
-    "ioredis": "^5.4.1",
-    "jsonwebtoken": "^9.0.2",
-    "nanoid": "^5.0.9",
-    "pino": "^9.6.0",
-    "zod": "^3.24.1"
-  },
-  "devDependencies": {
-    "prisma": "^6.3.1",
-    "tsx": "^4.19.2",
-    "typescript": "^5.7.3",
-    "@types/node": "^22.13.4",
-    "@types/bcrypt": "^5.0.2",
-    "@types/jsonwebtoken": "^9.0.9"
-  }
-}
+```
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+sqlalchemy==2.0.36
+alembic==1.14.0
+asyncpg==0.30.0
+psycopg2-binary==2.9.10
+redis==5.2.1
+pydantic==2.10.4
+pydantic-settings==2.7.0
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.20
+anthropic==0.40.0
+elevenlabs==1.13.5
+httpx==0.28.1
+python-dotenv==1.0.1
+nanoid==2.0.0
+boto3==1.35.0
 ```
 
-### Planned Backend Additions (not yet installed — add as features are implemented)
-
-| Package | When to add |
-|---------|-------------|
-| `@fastify/socket.io` + `socket.io` | Live session WebSocket events |
-| `@aws-sdk/client-s3` + `@aws-sdk/s3-request-presigner` + `@aws-sdk/lib-storage` | Document upload to S3 |
-| `@fastify/multipart` | File upload streaming |
-| `passport` + `@node-saml/passport-saml` | Enterprise SAML 2.0 SSO |
-| `resend` + `react-email` | Transactional email |
-| `pdf-parse` + `mammoth` | Document text extraction |
-| `puppeteer` | Server-side brief PDF generation |
-| `@databricks/sql` | Delta Lake session analytics |
-| `@sentry/node` | Error tracking |
+**Note:** `Backend: requirements.txt (pip)` | `Frontend: package-lock.json (npm)` — unchanged
 
 ---
 
@@ -1372,20 +1345,20 @@ LOGOUT:
 
 ### Password Hashing
 
-```typescript
-// bcrypt cost factor 12 — ~350ms hash time on modern hardware
-// Justification: Legal enterprise tool; performance cost acceptable at login
-// Do NOT go below cost factor 10 in any environment
+```python
+# passlib[bcrypt] cost factor 12 — ~350ms hash time on modern hardware
+# Justification: Legal enterprise tool; performance cost acceptable at login
+# Do NOT go below cost factor 10 in any environment
 
-import bcrypt from 'bcrypt';
+from passlib.context import CryptContext
 
-const BCRYPT_ROUNDS = 12;
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=12)
 
-export const hashPassword = (password: string): Promise<string> =>
-  bcrypt.hash(password, BCRYPT_ROUNDS);
+def hash_password(password: str) -> str:
+    return pwd_context.hash(password)
 
-export const verifyPassword = (password: string, hash: string): Promise<boolean> =>
-  bcrypt.compare(password, hash);
+def verify_password(password: str, hash: str) -> bool:
+    return pwd_context.verify(password, hash)
 ```
 
 ### Token Expiry Times
@@ -1516,8 +1489,8 @@ const securityHeaders = {
 
 **Critical major upgrades on horizon:**
 - **Next.js 16** (when released): Evaluate App Router breaking changes
-- **Prisma 7** (when released): Migration tooling changes expected
-- **Socket.io 5** (when released): Check breaking changes to Redis adapter
+- **SQLAlchemy 3** (when released): Migration tooling changes expected
+- **FastAPI 1.0** (when released): Check for breaking changes to dependency injection
 
 ### Security Patch Policy (Emergency)
 
@@ -1544,11 +1517,11 @@ vercel rollback --to [previous-deployment-url]
 flyctl releases list --app verdict-api
 flyctl deploy --image registry.fly.io/verdict-api:[previous-image-tag]
 
-# Database rollback (Prisma)
-# Note: Prisma Migrate has NO automatic rollback for data migrations
+# Database rollback (Alembic)
+# Note: Alembic has limited automatic rollback for data migrations
 # Prevention: all migrations are additive (add column, add table) in v1.0
 # Destructive changes require a two-phase deploy and are tracked in MIGRATIONS.md
-npx prisma migrate resolve --rolled-back [migration_name]
+alembic downgrade -1
 
 # Docker image pinning (emergency)
 # fly.toml build section:
@@ -1584,28 +1557,28 @@ Frontend:  ✓ Vite 5.4.19 + React 18.3.1 + TypeScript 5.8.3
            ○ Framer Motion, wavesurfer.js (polish)
            ○ @mediapipe/tasks-vision (Behavioral Sentinel P1.4)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Backend:   ✓ Node.js 22 LTS + Fastify 5.2.1
-           ✓ PostgreSQL 17 via Prisma 6.3.1
-           ✓ Redis 7.4 via ioredis 5.4.1
-           ✓ JWT (jsonwebtoken 9.0.2) + bcrypt 5.1.1
-           ○ AWS S3 (document storage)
-           ○ Socket.io 4.8.1 (live session WebSocket)
-           ○ SAML 2.0 SSO, Resend email, Puppeteer PDF
+Backend:   ✓ Python 3.12 + FastAPI 0.115.6 (Uvicorn 0.34.0)
+           ✓ PostgreSQL 17 via SQLAlchemy 2.0.36 + Alembic 1.14.0
+           ✓ Redis 7.4 via redis-py 5.2.1 (async)
+           ✓ JWT (python-jose 3.3.0) + passlib[bcrypt] 1.7.4
+           ✓ AWS S3 (document storage via boto3 1.35.0)
+           ○ FastAPI WebSockets (live session)
+           ○ SAML 2.0 SSO, Resend email, brief PDF export
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-AI Layer:  ✓ Claude SDK (@anthropic-ai/sdk 0.36.3)
-           ✓ ElevenLabs (elevenlabs 1.14.0)
-           ✓ NVIDIA Nemotron (REST via axios)
-           ✓ Nozomio Nia (REST via axios)
+AI Layer:  ✓ Claude SDK (anthropic 0.40.0 Python)
+           ✓ ElevenLabs (elevenlabs 1.13.5 Python)
+           ✓ NVIDIA Nemotron (REST via httpx)
+           ✓ Nozomio Nia (REST via httpx)
            ○ Databricks Delta Lake (analytics P1.2+)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Repo:      verdict-backend/          ← Fastify API (port 4000)
+Repo:      verdict-backend/          ← FastAPI (Python, port 4000)
            verdict-frontend/
              design-first-focus/    ← Vite SPA  (port 5173)
            docs/                    ← specs & guidelines
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Hosting:   Railway (backend) + Vercel/Lovable (frontend) [hackathon]
-Testing:   Vitest 3.2.4 (frontend) | tsc --noEmit (backend)
-Logging:   Pino 9.6.0
+Testing:   Vitest 3.2.4 (frontend) | python -m py_compile app/**/*.py (backend)
+Logging:   Python logging + uvicorn access logs
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 

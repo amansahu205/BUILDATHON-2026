@@ -1,0 +1,91 @@
+import enum
+
+
+class Role(str, enum.Enum):
+    PARTNER = "PARTNER"
+    ASSOCIATE = "ASSOCIATE"
+    PARALEGAL = "PARALEGAL"
+    ADMIN = "ADMIN"
+
+
+class CaseType(str, enum.Enum):
+    MEDICAL_MALPRACTICE = "MEDICAL_MALPRACTICE"
+    EMPLOYMENT_DISCRIMINATION = "EMPLOYMENT_DISCRIMINATION"
+    COMMERCIAL_DISPUTE = "COMMERCIAL_DISPUTE"
+    CONTRACT_BREACH = "CONTRACT_BREACH"
+    OTHER = "OTHER"
+
+
+class DocumentType(str, enum.Enum):
+    PRIOR_DEPOSITION = "PRIOR_DEPOSITION"
+    MEDICAL_RECORDS = "MEDICAL_RECORDS"
+    FINANCIAL_RECORDS = "FINANCIAL_RECORDS"
+    CORRESPONDENCE = "CORRESPONDENCE"
+    EXHIBIT = "EXHIBIT"
+    OTHER = "OTHER"
+
+
+class IngestionStatus(str, enum.Enum):
+    PENDING = "PENDING"
+    UPLOADING = "UPLOADING"
+    INDEXING = "INDEXING"
+    READY = "READY"
+    FAILED = "FAILED"
+
+
+class WitnessRole(str, enum.Enum):
+    DEFENDANT = "DEFENDANT"
+    PLAINTIFF = "PLAINTIFF"
+    EXPERT = "EXPERT"
+    CORPORATE_REPRESENTATIVE = "CORPORATE_REPRESENTATIVE"
+    OTHER = "OTHER"
+
+
+class SessionStatus(str, enum.Enum):
+    LOBBY = "LOBBY"
+    ACTIVE = "ACTIVE"
+    PAUSED = "PAUSED"
+    COMPLETE = "COMPLETE"
+    ABANDONED = "ABANDONED"
+
+
+class Aggression(str, enum.Enum):
+    STANDARD = "STANDARD"
+    ELEVATED = "ELEVATED"
+    HIGH_STAKES = "HIGH_STAKES"
+
+
+class EventType(str, enum.Enum):
+    QUESTION = "QUESTION"
+    ANSWER = "ANSWER"
+    PAUSE = "PAUSE"
+    RESUME = "RESUME"
+    TOPIC_CHANGE = "TOPIC_CHANGE"
+    SESSION_START = "SESSION_START"
+    SESSION_END = "SESSION_END"
+
+
+class SpeakerRole(str, enum.Enum):
+    INTERROGATOR = "INTERROGATOR"
+    WITNESS = "WITNESS"
+    SYSTEM = "SYSTEM"
+
+
+class AlertType(str, enum.Enum):
+    INCONSISTENCY = "INCONSISTENCY"
+    OBJECTION = "OBJECTION"
+    COMPOSURE = "COMPOSURE"
+    COACHING = "COACHING"
+
+
+class ImpeachmentRisk(str, enum.Enum):
+    HIGH = "HIGH"
+    MEDIUM = "MEDIUM"
+    LOW = "LOW"
+
+
+class AlertStatus(str, enum.Enum):
+    PENDING = "PENDING"
+    CONFIRMED = "CONFIRMED"
+    REJECTED = "REJECTED"
+    ANNOTATED = "ANNOTATED"

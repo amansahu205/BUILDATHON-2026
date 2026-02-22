@@ -41,7 +41,7 @@
 | Member | Primary Role | Owns |
 |--------|-------------|------|
 | **Aman** | AI/ML + Orchestration | Claude SDK agent loop, Nemotron integration, Behavioral Sentinel, Nia RAG |
-| **Nikhil** | Backend + Data Pipelines | Fastify API, PostgreSQL, Redis, Databricks Delta Lake schema |
+| **Nikhil** | Backend + Data Pipelines | FastAPI, PostgreSQL (SQLAlchemy), Redis, Databricks Delta Lake schema |
 | **Dhanush** | Frontend + UI/UX | Next.js pages, shadcn/ui components, Framer Motion, Recharts radar |
 | **[Member 4]** | Full-Stack / Integration | Auth (SAML/JWT), WebSocket plumbing, ElevenLabs Conversational AI, deployment |
 
@@ -118,7 +118,7 @@ npx tsx scripts/test-databricks.ts
 
 ### Pre-Built Assets (prepared in the 24 hrs before)
 
-- [ ] Prisma schema written and validated (`npx prisma validate`)
+- [ ] SQLAlchemy models written and validated (all 11 models in `app/models/`)
 - [ ] FRE corpus text file prepared for Nia indexing (`scripts/nia/fre-corpus.txt`)
 - [ ] Sample case document ready for demo: `demo/chen_v_metropolitan.pdf` (real-looking, 50 pages)
 - [ ] ElevenLabs voice IDs confirmed: Interrogator (`Adam`), Coach (`Rachel`)
@@ -130,7 +130,7 @@ npx tsx scripts/test-databricks.ts
 
 ## 3. PHASE 1 — FOUNDATION (Hour 0–4, Fri 6–10 PM)
 
-**Goal:** All 4 team members have a running repo, working database, passing health check, and can `npm run dev` locally.
+**Goal:** All 4 team members have a running repo, working database, passing health check, and can start the server locally.
 
 **All 4 members work in parallel on separate concerns during this phase.**
 
@@ -158,15 +158,14 @@ cat > package.json << 'EOF'
   "private": true,
   "workspaces": ["apps/*", "packages/*"],
   "scripts": {
-    "dev": "concurrently \"npm run dev --workspace=apps/frontend\" \"npm run dev --workspace=apps/backend\"",
-    "build": "npm run build --workspace=apps/frontend && npm run build --workspace=apps/backend",
-    "lint": "eslint .",
-    "typecheck": "tsc --noEmit -p apps/frontend/tsconfig.json && tsc --noEmit -p apps/backend/tsconfig.json",
+    "dev:frontend": "npm run dev --workspace=apps/frontend",
+    "dev:backend": "cd verdict-backend && uvicorn app.main:app --reload --port 4000",
+    "build": "npm run build --workspace=apps/frontend",
+    "lint": "eslint apps/frontend",
+    "typecheck": "tsc --noEmit -p apps/frontend/tsconfig.json",
     "test": "vitest run",
-    "db:migrate": "prisma migrate dev",
-    "db:migrate:deploy": "prisma migrate deploy",
-    "db:seed": "tsx prisma/seed.ts",
-    "db:studio": "prisma studio",
+    "db:migrate": "cd verdict-backend && alembic upgrade head",
+    "db:seed": "cd verdict-backend && python scripts/seed.py",
     "prepare": "husky"
   },
   "devDependencies": {
@@ -195,10 +194,9 @@ npx create-next-app@15.1.6 . \
   --import-alias "@/*" \
   --no-git
 
-# Initialize backend (Fastify)
-cd ../backend
-npm init -y
-npm install fastify@5.2.1 typescript@5.7.3 tsx@4.19.2
+# Backend already set up as FastAPI/Python in verdict-backend/
+cd ../../verdict-backend
+pip install -r requirements.txt  # FastAPI + SQLAlchemy + all Python deps
 
 # Shared types package
 cd ../../packages/shared
@@ -215,7 +213,8 @@ git push -u origin main
 ```
 
 **✅ Success Criteria:**
-- [ ] `npm run dev` from root starts both Next.js (port 3000) and Fastify (port 4000)
+- [ ] `uvicorn app.main:app --reload --port 4000` starts FastAPI backend
+- [ ] `npm run dev` (frontend) starts Vite SPA on port 5173
 - [ ] All 4 team members can `git pull` and run locally
 - [ ] GitHub repo visible at correct URL
 - [ ] Vercel auto-deploys frontend on push (verify in Vercel dashboard)
@@ -226,104 +225,60 @@ git push -u origin main
 
 **Owner:** Nikhil  
 **Duration:** 45 minutes  
-**Goal:** Fastify server running with health check, CORS, logging, and error handler.
+**Goal:** FastAPI server running with health check, CORS, logging, and error handler.
 
 ```bash
-cd apps/backend
+cd verdict-backend
 
-# Install all backend dependencies (exact versions from TECH_STACK.md §10)
-npm install \
-  fastify@5.2.1 \
-  @fastify/cors@10.0.2 \
-  @fastify/jwt@9.0.1 \
-  @fastify/multipart@9.0.3 \
-  @fastify/rate-limit@10.2.1 \
-  @fastify/socket.io@3.0.0 \
-  socket.io@4.8.1 \
-  @prisma/client@6.3.1 \
-  ioredis@5.4.1 \
-  @anthropic-ai/sdk@0.36.3 \
-  elevenlabs@1.14.0 \
-  axios@1.7.9 \
-  @databricks/sql@1.10.0 \
-  @aws-sdk/client-s3@3.726.1 \
-  @aws-sdk/s3-request-presigner@3.726.1 \
-  @aws-sdk/lib-storage@3.726.1 \
-  jsonwebtoken@9.0.2 \
-  bcrypt@5.1.1 \
-  nanoid@5.0.9 \
-  resend@4.1.2 \
-  pdf-parse@1.1.1 \
-  mammoth@1.8.0 \
-  pino@9.6.0 \
-  zod@3.24.1 \
-  dotenv@16.4.7 \
-  uuid@11.0.5 \
-  @sentry/node@8.51.0
+# Create virtual environment
+python -m venv venv
+# Windows:
+venv\Scripts\activate
 
-npm install -D \
-  prisma@6.3.1 \
-  @types/node@22.13.4 \
-  @types/bcrypt@5.0.2 \
-  @types/jsonwebtoken@9.0.9 \
-  typescript@5.7.3
+# Install dependencies
+pip install -r requirements.txt
 
-# Create entry point
-mkdir -p src/{modules,plugins,middleware,lib,types}
+# Copy env
+cp .env.example .env
+# Fill in DATABASE_URL, REDIS_URL, JWT_SECRET, ANTHROPIC_API_KEY
+
+# Run migrations
+alembic upgrade head
+
+# Seed demo data
+python scripts/seed.py
+
+# Start dev server
+uvicorn app.main:app --reload --port 4000
 ```
 
-```typescript
-// apps/backend/src/index.ts
-import Fastify from 'fastify';
-import { config } from 'dotenv';
-config();
+```python
+# app/main.py (entry point — already created)
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
-const app = Fastify({
-  logger: {
-    level: process.env.LOG_LEVEL ?? 'info',
-    transport: process.env.NODE_ENV === 'development'
-      ? { target: 'pino-pretty' }
-      : undefined,
-  },
-  requestIdHeader: 'x-request-id',
-  genReqId: () => `req_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
-});
+app = FastAPI(title="VERDICT API", version="1.0.0")
 
-// Health check — FIRST endpoint, no auth
-app.get('/api/v1/health', async () => ({
-  status: 'ok',
-  service: 'verdict-api',
-  version: '1.0.0',
-  timestamp: new Date().toISOString(),
-}));
+app.add_middleware(CORSMiddleware, allow_origins=[settings.FRONTEND_URL], allow_credentials=True,
+                   allow_methods=["*"], allow_headers=["*"])
 
-const start = async () => {
-  try {
-    await app.listen({ port: parseInt(process.env.PORT ?? '4000'), host: '0.0.0.0' });
-  } catch (err) {
-    app.log.error(err);
-    process.exit(1);
-  }
-};
-
-start();
+@app.get("/api/v1/health")
+async def health():
+    return {"status": "ok", "version": "1.0.0", "db": "connected"}
 ```
 
 ```bash
-# Add dev script to package.json
-# "dev": "tsx watch src/index.ts"
-
 # Test it works
-npm run dev
+uvicorn app.main:app --reload --port 4000
 curl http://localhost:4000/api/v1/health
-# Expected: {"status":"ok","service":"verdict-api",...}
+# Expected: {"status":"ok","version":"1.0.0","db":"connected"}
 ```
 
 **✅ Success Criteria:**
 - [ ] `curl http://localhost:4000/api/v1/health` returns `{ "status": "ok" }`
 - [ ] `curl http://localhost:4000/api/v1/health` from frontend origin returns CORS headers
-- [ ] Pino logs show request in terminal
-- [ ] TypeScript compiles with zero errors (`npx tsc --noEmit`)
+- [ ] Uvicorn logs show request in terminal
+- [ ] `uvicorn app.main:app --reload --port 4000` starts FastAPI on port 4000
 
 ---
 
@@ -331,96 +286,72 @@ curl http://localhost:4000/api/v1/health
 
 **Owner:** Nikhil  
 **Duration:** 45 minutes  
-**Goal:** PostgreSQL connected, all 11 tables created, Prisma client generated, seed data ready.
+**Goal:** PostgreSQL connected, all 11 tables created, Alembic migration applied, seed data ready.
 
 ```bash
-# Install Prisma CLI
-npm install -D prisma@6.3.1
+cd verdict-backend
 
-# Copy schema from BACKEND_STRUCTURE.md §2
-# (all 11 tables: firms, users, refresh_tokens, cases, documents, witnesses,
-#  sessions, session_events, alerts, briefs, attorney_annotations)
-cp ../../docs/prisma-schema.prisma prisma/schema.prisma
+# Set DATABASE_URL in .env (already done in Step 1.2)
 
-# Set DATABASE_URL in .env
-echo 'DATABASE_URL="postgresql://postgres:password@localhost:5432/verdict_dev"' >> .env
+# Apply migrations (creates all 11 tables)
+alembic upgrade head
 
-# Create database and run first migration
-npx prisma migrate dev --name "create_initial_schema"
+# Seed demo data
+python scripts/seed.py
+# Expected: ✅ Seed complete: firm, 3 users, 2 cases, 1 witness
 
-# Verify tables created
-npx prisma studio  # Opens at http://localhost:5555 — confirm all 11 tables visible
-
-# Generate Prisma client
-npx prisma generate
+# To browse data visually:
+# Connect any SQL client (TablePlus, DBeaver) to your Supabase DATABASE_URL
 ```
 
-```typescript
-// apps/backend/src/lib/prisma.ts — singleton client
-import { PrismaClient } from '@prisma/client';
+```python
+# app/database.py — async SQLAlchemy engine (already created)
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from app.config import settings
 
-const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
+engine = create_async_engine(settings.DATABASE_URL_ASYNC, echo=False)
+AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
-export const db = globalForPrisma.prisma ?? new PrismaClient({
-  log: process.env.NODE_ENV === 'development' ? ['query', 'error'] : ['error'],
-});
-
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db;
+async def get_db():
+    async with AsyncSessionLocal() as session:
+        yield session
 ```
 
-```typescript
-// prisma/seed.ts — demo data for development + hackathon demo
-import { db } from '../apps/backend/src/lib/prisma';
-import bcrypt from 'bcrypt';
+```python
+# scripts/seed.py — demo data for development + hackathon demo
+import asyncio
+from passlib.context import CryptContext
+from app.database import AsyncSessionLocal
+from app.models.firm import Firm
+from app.models.user import User
+from app.models.case import Case
 
-async function main() {
-  const firm = await db.firm.create({
-    data: {
-      name: 'Demo Law Group LLP',
-      slug: 'demo-law-group',
-      seats: 10,
-      setupComplete: true,
-      retentionDays: 90,
-    },
-  });
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-  const attorney = await db.user.create({
-    data: {
-      firmId: firm.id,
-      email: 'sarah.chen@demo.com',
-      name: 'Sarah Chen',
-      role: 'PARTNER',
-      passwordHash: await bcrypt.hash('Demo!Pass123', 12),
-      emailVerified: true,
-    },
-  });
+async def main():
+    async with AsyncSessionLocal() as db:
+        firm = Firm(name="Demo Law Group LLP", seats=10)
+        db.add(firm)
+        await db.flush()
 
-  const demoCase = await db.case.create({
-    data: {
-      firmId: firm.id,
-      ownerId: attorney.id,
-      name: 'Chen v. Metropolitan Hospital',
-      caseType: 'MEDICAL_MALPRACTICE',
-      opposingFirm: 'Defense Partners LLP',
-      depositionDate: new Date('2026-03-15'),
-    },
-  });
+        user = User(firm_id=firm.id, email="sarah.chen@demo.com", name="Sarah Chen",
+                    role="PARTNER", password_hash=pwd_context.hash("Demo!Pass123"))
+        db.add(user)
+        await db.commit()
+        print(f"✅ Seed complete: firmId={firm.id}")
 
-  console.log('✅ Seed complete:', { firmId: firm.id, caseId: demoCase.id });
-}
-
-main().finally(() => db.$disconnect());
+asyncio.run(main())
 ```
 
 ```bash
-npx prisma db seed
-# Expected: ✅ Seed complete: { firmId: 'cl...', caseId: 'cl...' }
+python scripts/seed.py
+# Expected: ✅ Seed complete: firmId=...
 ```
 
 **✅ Success Criteria:**
-- [ ] `npx prisma studio` shows 11 tables with seed data in `firms`, `users`, `cases`
-- [ ] `db.firm.findMany()` returns the demo firm
-- [ ] No TypeScript errors in Prisma client usage
+- [ ] SQL client shows 11 tables with seed data in `Firm`, `User`, `Case`
+- [ ] `alembic current` shows `head`
+- [ ] `python scripts/seed.py` completes without errors
 - [ ] Migration file committed to Git
 
 ---
@@ -431,63 +362,44 @@ npx prisma db seed
 **Duration:** 30 minutes  
 **Goal:** Redis connected, S3 bucket accessible, both tested.
 
-```typescript
-// apps/backend/src/lib/redis.ts
-import { Redis } from 'ioredis';
+```python
+# app/redis_client.py — async redis-py client (already created)
+import redis.asyncio as aioredis
+from app.config import settings
 
-export const redis = new Redis(process.env.REDIS_URL!, {
-  maxRetriesPerRequest: 3,
-  enableReadyCheck: true,
-  reconnectOnError: (err) => {
-    console.error('Redis reconnect on error:', err.message);
-    return true;
-  },
-});
-
-redis.on('connect', () => console.log('✅ Redis connected'));
-redis.on('error', (err) => console.error('Redis error:', err));
+redis_client = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
 ```
 
-```typescript
-// apps/backend/src/lib/s3.ts
-import { S3Client } from '@aws-sdk/client-s3';
+```python
+# Test Redis connectivity (run from verdict-backend/)
+import asyncio, redis.asyncio as aioredis
+from dotenv import load_dotenv; load_dotenv()
+from app.config import settings
 
-export const s3 = new S3Client({
-  region: process.env.AWS_REGION!,
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-  },
-});
+async def test():
+    r = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+    await r.set("test", "verdict")
+    val = await r.get("test")
+    print(f"Redis GET: {val}")  # Should print: Redis GET: verdict
+    await r.aclose()
 
-export const S3_BUCKET = process.env.S3_BUCKET_NAME!;
+asyncio.run(test())
 ```
 
-```bash
-# Test Redis
-node -e "
-const { Redis } = require('ioredis');
-const r = new Redis(process.env.REDIS_URL);
-r.set('test', 'verdict').then(res => console.log('Redis SET:', res));
-r.get('test').then(res => { console.log('Redis GET:', res); r.quit(); });
-"
-
+```python
 # Test S3 (upload a test file)
-node -e "
-const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
-const s3 = new S3Client({ region: 'us-east-1' });
-s3.send(new PutObjectCommand({
-  Bucket: process.env.S3_BUCKET_NAME,
-  Key: 'test/connection-test.txt',
-  Body: 'verdict s3 test'
-})).then(() => console.log('✅ S3 write success'));
-"
+import boto3, os
+from dotenv import load_dotenv; load_dotenv()
+
+s3 = boto3.client("s3", region_name=os.environ["AWS_REGION"])
+s3.put_object(Bucket=os.environ["S3_BUCKET_NAME"], Key="test/connection-test.txt", Body=b"verdict s3 test")
+print("✅ S3 write success")
 ```
 
 **✅ Success Criteria:**
-- [ ] `Redis GET test` returns `"verdict"`
+- [ ] `Redis GET: verdict` printed from test script
 - [ ] S3 `verdict-documents-hackathon/test/connection-test.txt` visible in AWS console
-- [ ] No connection errors in Fastify startup logs
+- [ ] No connection errors in FastAPI startup logs
 
 ---
 
@@ -497,89 +409,63 @@ s3.send(new PutObjectCommand({
 **Duration:** 60 minutes  
 **Goal:** JWT middleware + login/refresh endpoints working. This unblocks all other authenticated routes.
 
-```typescript
-// apps/backend/src/modules/auth/auth.service.ts
-import jwt from 'jsonwebtoken';
-import bcrypt from 'bcrypt';
-import { nanoid } from 'nanoid';
-import { db } from '../../lib/prisma';
-import { redis } from '../../lib/redis';
+```python
+# app/routers/auth.py — login endpoint (already created)
+from fastapi import APIRouter, Depends, HTTPException, Response
+from sqlalchemy.ext.asyncio import AsyncSession
+from jose import jwt
+from passlib.context import CryptContext
+from nanoid import generate
+from app.database import get_db
+from app.config import settings
+from app.models.user import User
+from app.schemas.auth import LoginRequest
 
-const ACCESS_SECRET = process.env.JWT_SECRET!;
-const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET!;
+router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-export function signAccessToken(payload: { sub: string; firmId: string; role: string; email: string }) {
-  return jwt.sign(payload, ACCESS_SECRET, { expiresIn: '8h' });
-}
+def sign_access_token(sub: str, firm_id: str, role: str, email: str) -> str:
+    payload = {"sub": sub, "firmId": firm_id, "role": role, "email": email}
+    return jwt.encode(payload, settings.JWT_SECRET, algorithm="HS256")
 
-export function signRefreshToken(payload: { sub: string; firmId: string; jti: string }) {
-  return jwt.sign(payload, REFRESH_SECRET, { expiresIn: '30d' });
-}
-
-export async function loginWithPassword(email: string, password: string) {
-  const user = await db.user.findUnique({
-    where: { email: email.toLowerCase() },
-    include: { firm: { select: { id: true, sentinelEnabled: true } } },
-  });
-  if (!user || !user.passwordHash) throw new Error('INVALID_CREDENTIALS');
-  if (!user.isActive) throw new Error('ACCOUNT_INACTIVE');
-  
-  const valid = await bcrypt.compare(password, user.passwordHash);
-  if (!valid) {
-    await db.user.update({
-      where: { id: user.id },
-      data: { loginAttempts: { increment: 1 } },
-    });
-    throw new Error('INVALID_CREDENTIALS');
-  }
-
-  const jti = nanoid(16);
-  const accessToken = signAccessToken({
-    sub: user.id, firmId: user.firmId, role: user.role, email: user.email,
-  });
-  const refreshToken = signRefreshToken({ sub: user.id, firmId: user.firmId, jti });
-
-  // Store refresh token hash in DB
-  const crypto = await import('crypto');
-  const tokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
-  await db.refreshToken.create({
-    data: { userId: user.id, firmId: user.firmId, tokenHash, expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) },
-  });
-
-  await db.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date(), loginAttempts: 0 } });
-
-  return { user, accessToken, refreshToken };
-}
+@router.post("/login")
+async def login(body: LoginRequest, response: Response, db: AsyncSession = Depends(get_db)):
+    user = await db.execute(select(User).where(User.email == body.email.lower()))
+    user = user.scalar_one_or_none()
+    if not user or not user.password_hash:
+        raise HTTPException(401, detail={"code": "INVALID_CREDENTIALS"})
+    if not user.is_active:
+        raise HTTPException(403, detail={"code": "ACCOUNT_INACTIVE"})
+    if not pwd_context.verify(body.password, user.password_hash):
+        raise HTTPException(401, detail={"code": "INVALID_CREDENTIALS"})
+    
+    access_token = sign_access_token(str(user.id), str(user.firm_id), user.role, user.email)
+    response.set_cookie("access_token", f"Bearer {access_token}", httponly=True, samesite="strict", secure=True)
+    return {"success": True, "data": {"user": {"id": str(user.id), "email": user.email, "name": user.name, "role": user.role}}}
 ```
 
-```typescript
-// apps/backend/src/middleware/require-auth.ts
-import { FastifyRequest, FastifyReply } from 'fastify';
-import jwt from 'jsonwebtoken';
-import { db } from '../lib/prisma';
+```python
+# app/middleware/auth.py — require_auth dependency (already created)
+from fastapi import Depends, HTTPException
+from fastapi.security import HTTPBearer
+from jose import JWTError, jwt
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.database import get_db
+from app.models.user import User
+from app.config import settings
 
-export async function requireAuth(request: FastifyRequest, reply: FastifyReply) {
-  const token = request.cookies?.access_token?.replace('Bearer ', '');
-  // Hackathon shortcut: also accept Authorization header
-  const headerToken = request.headers.authorization?.replace('Bearer ', '');
-  const raw = token ?? headerToken;
-  
-  if (!raw) return reply.code(401).send({ success: false, error: { code: 'TOKEN_MISSING' } });
-  
-  try {
-    const payload = jwt.verify(raw, process.env.JWT_SECRET!) as {
-      sub: string; firmId: string; role: string; email: string;
-    };
-    const user = await db.user.findUnique({
-      where: { id: payload.sub },
-      select: { id: true, firmId: true, role: true, isActive: true },
-    });
-    if (!user || !user.isActive) return reply.code(403).send({ success: false, error: { code: 'ACCOUNT_INACTIVE' } });
-    (request as any).user = user;
-  } catch {
-    return reply.code(401).send({ success: false, error: { code: 'TOKEN_INVALID' } });
-  }
-}
+security = HTTPBearer()
+
+async def require_auth(credentials=Depends(security), db: AsyncSession = Depends(get_db)):
+    try:
+        payload = jwt.decode(credentials.credentials, settings.JWT_SECRET, algorithms=["HS256"])
+        user_id = payload.get("sub")
+    except JWTError:
+        raise HTTPException(401, detail={"code": "TOKEN_INVALID"})
+    user = await db.get(User, user_id)
+    if not user or not user.is_active:
+        raise HTTPException(403, detail={"code": "ACCOUNT_INACTIVE"})
+    return user
 ```
 
 ```bash
@@ -602,10 +488,10 @@ curl -X POST http://localhost:4000/api/v1/auth/login \
 ### Phase 1 Gate Check ✅ (Hour 4 — Fri 10 PM)
 
 Before moving to Phase 2, all 4 members verify:
-- [ ] `npm run dev` — both services start, no errors
+- [ ] `uvicorn app.main:app --reload --port 4000` starts, no errors
 - [ ] `curl /api/v1/health` → `{ "status": "ok" }`
 - [ ] `curl /api/v1/auth/login` with seed data → JWT returned
-- [ ] Prisma Studio shows all 11 tables with seed rows
+- [ ] SQL client shows all 11 tables with seed rows
 - [ ] Redis SET/GET working
 - [ ] S3 test file exists
 - [ ] Vercel preview URL deploying (check Vercel dashboard)
@@ -633,67 +519,44 @@ Before moving to Phase 2, all 4 members verify:
 **Duration:** 90 minutes  
 **Goal:** Reusable Claude streaming function that all 4 agents will call.
 
-```typescript
-// apps/backend/src/lib/claude.ts
-import Anthropic from '@anthropic-ai/sdk';
+```python
+# app/services/claude.py (already created)
+from anthropic import AsyncAnthropic
+from app.config import settings
 
-export const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
+client = AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
 
-export const CLAUDE_MODEL = 'claude-sonnet-4-20250514';
+async def claude_chat(system_prompt: str, user_message: str, max_tokens=1024) -> str:
+    response = await client.messages.create(
+        model=settings.ANTHROPIC_MODEL,
+        max_tokens=max_tokens,
+        system=system_prompt,
+        messages=[{"role": "user", "content": user_message}]
+    )
+    return response.content[0].text
 
-/**
- * Non-streaming Claude call — for Objection Copilot, Inconsistency Detector
- */
-export async function claudeChat(
-  systemPrompt: string,
-  userMessage: string,
-  maxTokens = 1024
-): Promise<string> {
-  const response = await anthropic.messages.create({
-    model: CLAUDE_MODEL,
-    max_tokens: maxTokens,
-    system: systemPrompt,
-    messages: [{ role: 'user', content: userMessage }],
-  });
-  const block = response.content[0];
-  if (block.type !== 'text') throw new Error('Unexpected Claude response type');
-  return block.text;
-}
-
-/**
- * Streaming Claude call — for Interrogator question generation
- * Returns an async generator of text chunks
- */
-export async function* claudeStream(
-  systemPrompt: string,
-  userMessage: string,
-  maxTokens = 512
-): AsyncGenerator<string> {
-  const stream = await anthropic.messages.create({
-    model: CLAUDE_MODEL,
-    max_tokens: maxTokens,
-    stream: true,
-    system: systemPrompt,
-    messages: [{ role: 'user', content: userMessage }],
-  });
-
-  for await (const event of stream) {
-    if (
-      event.type === 'content_block_delta' &&
-      event.delta.type === 'text_delta'
-    ) {
-      yield event.delta.text;
-    }
-  }
-}
+async def claude_stream(system_prompt: str, user_message: str, max_tokens=512):
+    """Streaming Claude call — for Interrogator question generation"""
+    async with client.messages.stream(
+        model=settings.ANTHROPIC_MODEL,
+        max_tokens=max_tokens,
+        system=system_prompt,
+        messages=[{"role": "user", "content": user_message}],
+    ) as stream:
+        async for text in stream.text_stream:
+            yield text
 ```
 
-```bash
+```python
 # Quick test
-node -e "
-const { claudeChat } = require('./src/lib/claude');
-claudeChat('You are a test.', 'Say pong').then(r => console.log('Claude:', r));
-"
+import asyncio
+from app.services.claude import claude_chat
+
+async def test():
+    result = await claude_chat("You are a test.", "Say pong")
+    print(f"Claude: {result}")
+
+asyncio.run(test())
 ```
 
 ---
@@ -704,35 +567,26 @@ claudeChat('You are a test.', 'Say pong').then(r => console.log('Claude:', r));
 **Duration:** 60 minutes  
 **Goal:** Nia client working, FRE rules corpus indexed and queryable.
 
-```typescript
-// apps/backend/src/lib/nia.ts
-import axios from 'axios';
+```python
+# app/services/nia.py (already created)
+import httpx
+from app.config import settings
 
-const nia = axios.create({
-  baseURL: process.env.NIA_BASE_URL,
-  headers: { Authorization: `Bearer ${process.env.NIA_API_KEY}` },
-  timeout: 10_000,
-});
+async def index_document(index_id: str, document_id: str, content: str, metadata: dict = None):
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.post(
+            f"{settings.NIA_BASE_URL}/index",
+            headers={"Authorization": f"Bearer {settings.NIA_API_KEY}"},
+            json={"indexId": index_id, "documentId": document_id, "content": content, "metadata": metadata or {}}
+        )
+        return resp.json()
 
-export async function indexDocument(params: {
-  indexId: string;
-  documentId: string;
-  content: string;
-  metadata?: Record<string, unknown>;
-}) {
-  const { data } = await nia.post('/index', params);
-  return data;
-}
-
-export async function searchIndex(params: {
-  indexId: string;
-  query: string;
-  topK?: number;
-  filters?: Record<string, unknown>;
-}) {
-  const { data } = await nia.post('/search', {
-    ...params,
-    topK: params.topK ?? 5,
+async def search_index(index_id: str, query: str, top_k: int = 5, filters: dict = None):
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.post(
+            f"{settings.NIA_BASE_URL}/search",
+            headers={"Authorization": f"Bearer {settings.NIA_API_KEY}"},
+            json={"indexId": index_id, "query": query, "topK": top_k,
   });
   return data.results as Array<{
     id: string;
@@ -1445,19 +1299,28 @@ watch -n 3 curl -s http://localhost:4000/api/v1/cases/DEMO_CASE_ID/documents/DOC
 **Duration:** 90 minutes  
 **Goal:** Full WebSocket session room — attorney and witness both connected, events flowing both directions.
 
-```typescript
-// apps/backend/src/modules/sessions/sessions.websocket.ts — full implementation
-import { Server, Socket } from 'socket.io';
-import jwt from 'jsonwebtoken';
-import { redis } from '../../lib/redis';
-import { db } from '../../lib/prisma';
-import { bufferSessionEvent } from './sessions.buffer';
+```python
+# app/routers/sessions.py — WebSocket endpoint (FastAPI built-in)
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from jose import JWTError, jwt
+from app.redis_client import redis_client
+from app.database import AsyncSessionLocal
+from app.config import settings
 
-export function registerSessionWebSocket(io: Server) {
-  io.on('connection', async (socket: Socket) => {
-    const { sessionId, token, role } = socket.handshake.query as {
-      sessionId: string; token?: string; role?: string;
-    };
+router = APIRouter()
+
+@router.websocket("/ws/session/{session_id}")
+async def session_websocket(websocket: WebSocket, session_id: str):
+    await websocket.accept()
+    token = websocket.query_params.get("token")
+    role = websocket.query_params.get("role", "attorney")
+    
+    # Auth: attorney uses JWT, witness uses token
+    if role == "witness" and token:
+        data = await redis_client.get(f"witness:{token}")
+        if not data:
+            await websocket.close(); return
+    else:
 
     // Auth: attorney uses JWT, witness uses token
     let userId: string | null = null;
@@ -2256,7 +2119,7 @@ cat apps/backend/.env | grep -c "=" # count all vars
 # Verify all vars are in Railway dashboard
 
 # 2. Run database migration on production
-DATABASE_URL=$PRODUCTION_DATABASE_URL npx prisma migrate deploy
+DATABASE_URL=$PRODUCTION_DATABASE_URL alembic upgrade head
 
 # 3. Seed production with demo data
 DATABASE_URL=$PRODUCTION_DATABASE_URL npx tsx scripts/demo/seed-demo-scenario.ts
@@ -2334,7 +2197,7 @@ curl -X POST https://api.verdict.law/api/v1/auth/login \
 
 ### Tech Stack Tags to Add
 - ElevenLabs, Anthropic Claude, NVIDIA Nemotron, Databricks, Nia AI
-- Next.js, Fastify, PostgreSQL, Redis, WebSocket
+- Next.js, FastAPI, PostgreSQL, Redis, WebSocket
 - MediaPipe, Framer Motion, Recharts
 
 ### Architecture Diagram
@@ -2387,8 +2250,8 @@ Questions to prep for:
 ### Milestone 1: Foundation Complete ✅
 **Target:** Hour 4 (Fri 10 PM)
 - [ ] Monorepo initialized, all 4 members building
-- [ ] Fastify health check live
-- [ ] PostgreSQL: all 11 tables created
+- [ ] FastAPI health check live (`uvicorn app.main:app --reload --port 4000`)
+- [ ] PostgreSQL: all 11 tables created via `alembic upgrade head`
 - [ ] Redis connected
 - [ ] S3 connected
 - [ ] Login endpoint returning JWT
@@ -2445,7 +2308,7 @@ Questions to prep for:
 | MediaPipe WASM not loading | Low | Low — P1.4 only | Host face_landmarker.task in /public/models. CDN fallback. Feature can be skipped |
 | Databricks warehouse cold start | Medium | Low — demo only | Warm warehouse before demo. Keep alternative pre-queried static data |
 | WebSocket drops on demo laptop WiFi | Medium | High — live demo failure | Test on hackathon venue WiFi. Have hotspot backup. Record demo video |
-| Prisma migration fails in production | Low | Critical | Test migration on staging DB first. Pre-deploy snapshot. Rollback: `prisma migrate resolve --rolled-back` |
+| Alembic migration fails in production | Low | Critical | Test migration on staging DB first. Pre-deploy snapshot. Rollback: `alembic downgrade -1` |
 | JWT secret mismatch between frontend/backend | Low | High | Single source of truth: Railway env vars. Verify before demo |
 | Claude API rate limit (heavy agent use) | Low | Medium | Queue requests. Distribute across session. Use streaming to reduce apparent latency |
 

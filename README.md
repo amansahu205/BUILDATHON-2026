@@ -1,8 +1,7 @@
 # ⚖️ VERDICT — AI Deposition Coaching Platform
 
-![Node.js](https://img.shields.io/badge/Node.js-22_LTS-339933?logo=node.js&logoColor=white)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?logo=typescript&logoColor=white)
-![Fastify](https://img.shields.io/badge/Fastify-5.2-000000?logo=fastify&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)
 ![React](https://img.shields.io/badge/React-18.3-61DAFB?logo=react&logoColor=black)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-4169E1?logo=postgresql&logoColor=white)
 ![Redis](https://img.shields.io/badge/Redis-7.4-DC382D?logo=redis&logoColor=white)
@@ -33,8 +32,8 @@
 │              VERDICT PLATFORM                       │
 │                                                     │
 │  ┌──────────────┐        ┌─────────────────────┐   │
-│  │  Vite+React  │  REST  │   Fastify API       │   │
-│  │  (SPA/CSR)   │◄──────►│   Port 4000         │   │
+│  │  Vite+React  │  REST  │   FastAPI Server     │   │
+│  │  (SPA/CSR)   │◄──────►│   Port 8000         │   │
 │  │  Port 5173   │        │                     │   │
 │  └──────────────┘        └────────┬────────────┘   │
 │                                   │                 │
@@ -69,16 +68,16 @@ AI Layer:  Claude (Interrogator) │ Nemotron (Scoring)
 ### Backend (`verdict-backend/`)
 | Layer | Technology |
 |---|---|
-| Runtime | Node.js 22 LTS |
-| Framework | Fastify 5.2.1 |
-| Language | TypeScript 5.7 |
-| ORM | Prisma 6.3.1 |
+| Runtime | Python 3.12 |
+| Framework | FastAPI 0.115.6 |
+| ASGI Server | Uvicorn 0.34.0 |
+| ORM | SQLAlchemy 2.0.36 (async) |
+| Migrations | Alembic 1.14.0 |
 | Database | PostgreSQL 17 (Supabase) |
-| Cache / Pub-Sub | Redis 7.4 (Upstash) |
-| Auth | JWT (access 8h + refresh 30d) |
-| AI SDK | @anthropic-ai/sdk, ElevenLabs, Axios |
-| Validation | Zod |
-| Logging | Pino |
+| Cache / Pub-Sub | Redis 7.4 (Upstash) via redis-py |
+| Auth | JWT — python-jose + passlib[bcrypt] |
+| AI SDKs | anthropic, elevenlabs, httpx |
+| Validation | Pydantic v2 |
 
 ### Frontend (`verdict-frontend/design-first-focus/`)
 | Layer | Technology |
@@ -98,17 +97,23 @@ AI Layer:  Claude (Interrogator) │ Nemotron (Scoring)
 
 ```
 BUILDATHON-2026/
-├── verdict-backend/              # Fastify API
-│   ├── src/
+├── verdict-backend/              # FastAPI server (Python 3.12)
+│   ├── app/
 │   │   ├── agents/               # interrogator, objection, detector
-│   │   ├── lib/                  # db.ts (Prisma), redis.ts (ioredis)
-│   │   ├── middleware/           # auth, error, rate-limit
-│   │   ├── routes/               # auth, cases, sessions, briefs
+│   │   ├── middleware/           # auth (JWT bearer), rate-limit
+│   │   ├── models/               # SQLAlchemy ORM models (11 tables)
+│   │   ├── routers/              # auth, cases, sessions, briefs
+│   │   ├── schemas/              # Pydantic v2 request/response schemas
 │   │   ├── services/             # elevenlabs, claude, nia, nemotron
-│   │   └── index.ts              # Fastify entry + graceful shutdown
-│   ├── prisma/
-│   │   ├── schema.prisma         # 11 models, 12 enums, full indexes
-│   │   └── seed.ts               # Demo firm, 3 users, 2 cases, 1 witness
+│   │   ├── database.py           # AsyncSession + connection pool
+│   │   ├── config.py             # pydantic-settings env loader
+│   │   └── main.py               # FastAPI app + CORS + exception handlers
+│   ├── alembic/                  # Migration history
+│   ├── scripts/
+│   │   └── seed.py               # Demo firm, 3 users, 2 cases, 1 witness
+│   ├── requirements.txt
+│   ├── alembic.ini
+│   ├── run.py                    # Uvicorn entry point
 │   └── .env.example
 │
 ├── verdict-frontend/
@@ -122,7 +127,9 @@ BUILDATHON-2026/
 └── docs/                         # PRD, Tech Stack, Backend Structure
     ├── PRD.md
     ├── TECH_STACK.md
-    └── BACKEND_STRUCTURE.md
+    ├── BACKEND_STRUCTURE.md
+    ├── IMPLEMENTATION_PLAN.md
+    └── APP_FLOW.md
 ```
 
 ---
@@ -130,7 +137,7 @@ BUILDATHON-2026/
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Node.js 22+
+- Python 3.12+
 - PostgreSQL database (Supabase recommended)
 - Redis instance (Upstash recommended)
 
@@ -139,24 +146,29 @@ BUILDATHON-2026/
 ```bash
 cd verdict-backend
 
+# Create and activate virtual environment
+python -m venv venv
+source venv/bin/activate        # Windows: venv\Scripts\activate
+
 # Install dependencies
-npm install
+pip install -r requirements.txt
 
 # Configure environment
 cp .env.example .env
 # Fill in DATABASE_URL, REDIS_URL, JWT_SECRET, ANTHROPIC_API_KEY
 
-# Push schema to database
-npx prisma db push
+# Run database migrations
+alembic upgrade head
 
 # Seed demo data
-npx prisma db seed
+python scripts/seed.py
 
 # Start dev server
-npm run dev
+uvicorn app.main:app --reload --port 8000
 ```
 
-Server starts at `http://localhost:4000`
+Server starts at `http://localhost:8000`
+Interactive API docs at `http://localhost:8000/docs`
 
 ### Frontend
 
@@ -220,7 +232,7 @@ Firm → User → Case → Document
 ```
 
 Key design decisions:
-- All firm-scoped data has `firmId` + cascade deletes for data isolation
+- All firm-scoped data has `firm_id` + cascade deletes for data isolation
 - `Session.aggression` enum (STANDARD / ELEVATED / HIGH_STAKES) drives AI tone
 - `Alert` captures live objection + inconsistency flags with FRE classification
 - `Brief` stores post-session score, consistency rate, and weakness map
@@ -249,7 +261,7 @@ See [`verdict-backend/.env.example`](verdict-backend/.env.example) for the full 
 
 ## 🧪 Demo Credentials
 
-After running `npx prisma db seed`:
+After running `python scripts/seed.py`:
 
 | Role | Email | Password |
 |---|---|---|
@@ -280,9 +292,9 @@ Built at **BUILDATHON 2026** — 48-hour hackathon
 | | Name | GitHub |
 |---|---|---|
 | 🧑‍💻 | Aman Sahu | [@amansahu205](https://github.com/amansahu205) |
-| 🧑‍💻 | Sukruth D | [@dsukruth](https://github.com/dsukruth) |
-| 🧑‍💻 | Nikhil Mulgir | [@nikhilmulgir1106](https://github.com/nikhilmulgir1106) |
 | 🧑‍💻 | Supriya Nagnath Kadam | [@skadam1199](https://github.com/skadam1199) |
+| 🧑‍💻 | Dhanush Sukruth | [@dsukruth](https://github.com/dsukruth) |
+| 🧑‍💻 | Nikhil Mulgir | [@nikhilmulgir1106](https://github.com/nikhilmulgir1106) |
 
 ---
 
