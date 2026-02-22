@@ -2,8 +2,18 @@ from typing import AsyncGenerator
 
 from app.services.claude import claude_stream
 from app.services.databricks_vector import search_prior_statements
-from .prompt import build_system_prompt
 from .models import VerdictCase
+
+_INTERROGATOR_SYSTEM = """You are an elite deposition attorney conducting a high-stakes mock deposition.
+Your sole job is to generate ONE sharp, focused deposition question to ask the witness right now.
+
+Rules:
+- Output ONLY the question text — no preamble, no JSON, no labels, no quotes around it.
+- The question must be a single, non-compound question (one fact per question).
+- Use the case facts, prior statements, and exhibits provided to trap the witness in contradictions.
+- Calibrate aggression to the instruction given.
+- Questions should reference specific exhibits, dates, or quotes when available.
+- Never ask two things at once."""
 
 
 async def generate_question(
@@ -15,12 +25,8 @@ async def generate_question(
     recent_inconsistency_flag: bool = False,
     prior_weak_areas: list[str] | None = None,
 ) -> AsyncGenerator[str, None]:
-    """Stream the next deposition question token-by-token.
-
-    Prior sworn statements are retrieved from Databricks filtered by case.id
-    so we always query the right case's indexed documents.
-    """
-    system_prompt = build_system_prompt(case)
+    """Stream the next deposition question token-by-token."""
+    system_prompt = _INTERROGATOR_SYSTEM
 
     prior_context: list[dict] = []
     if prior_answer:
@@ -45,8 +51,14 @@ async def generate_question(
             f'- "{r.get("content", "")}"' for r in prior_context
         )
 
-    user_message = f"""Case type: {case.case_type}
-Witness role: {case.witness_role}
+    user_message = f"""CASE: {case.case_name} ({case.case_type})
+WITNESS: {case.witness_name} — {case.witness_role}
+OPPOSING PARTY: {case.opposing_party}
+KEY FACTS: {case.extracted_facts[:600] if case.extracted_facts else 'N/A'}
+PRIOR STATEMENTS TO CHALLENGE: {case.prior_statements[:400] if case.prior_statements else 'N/A'}
+EXHIBITS: {case.exhibit_list[:300] if case.exhibit_list else 'N/A'}
+FOCUS AREAS: {case.focus_areas}
+
 Current focus topic: {current_topic}
 Question number: {question_number}
 {f'Witness last answered: "{prior_answer}"' if prior_answer else 'First question on this topic.'}
