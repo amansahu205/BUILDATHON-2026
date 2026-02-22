@@ -27,3 +27,4 @@ databricks-sdk==0.20.0
 databricks-vectorsearch==0.40
 # Document ingestion
 mammoth==1.8.0
+greenlet==3.1.1
