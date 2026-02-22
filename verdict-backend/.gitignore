@@ -1,6 +1,26 @@
-node_modules/
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+venv/
+.venv/
+*.egg-info/
 dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Environment
 .env
 .env.local
 *.log
+
+# OS
 .DS_Store
+Thumbs.db
+
+# Legacy Node (no longer used)
+node_modules/
