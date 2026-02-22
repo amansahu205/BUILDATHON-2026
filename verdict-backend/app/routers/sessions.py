@@ -369,9 +369,9 @@ async def stream_question(
                 full_text += chunk
                 yield f"data: {json.dumps({'type': 'QUESTION_CHUNK', 'text': chunk})}\n\n"
         except Exception as exc:
-            import logging
-            logging.getLogger(__name__).error("Interrogator agent failed: %s", exc)
-            full_text = full_text or f"[Agent error — {type(exc).__name__}]"
+            import logging, traceback
+            logging.getLogger(__name__).error("Interrogator agent failed: %s\n%s", exc, traceback.format_exc())
+            full_text = full_text or f"[Agent error — {type(exc).__name__}: {str(exc)[:100]}]"
             yield f"data: {json.dumps({'type': 'QUESTION_CHUNK', 'text': full_text})}\n\n"
 
         event = SessionEvent(
