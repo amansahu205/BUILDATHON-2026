@@ -4,11 +4,13 @@
 > Team: VoiceFlow Intelligence | Track: AI Automation — August.law Sponsor Track  
 > Build Window: **48 hours** | Feb 20 (6 PM) → Feb 22 (6 PM)
 <!-- Updated: Feb 22 2026 — Nia removed, Databricks Vector Search added, voiceagents integrated -->
+<!-- Last edited: Feb 22 2026 18:00 — Added Section 0: live implementation status snapshot -->
 
 ---
 
 ## TABLE OF CONTENTS
 
+0. [Current Implementation Status (Feb 22, 2026 — Live Snapshot)](#0-current-implementation-status)
 1. [Overview](#1-overview)
 2. [Pre-Hackathon Checklist (T-24 hrs)](#2-pre-hackathon-checklist-t-24-hrs)
 3. [Phase 1 — Foundation (Hour 0–4, Fri 6–10 PM)](#3-phase-1--foundation-hour-04-fri-610-pm)
@@ -21,6 +23,161 @@
 10. [Risk Mitigation](#10-risk-mitigation)
 11. [Success Criteria](#11-success-criteria)
 12. [Post-MVP Roadmap](#12-post-mvp-roadmap)
+
+---
+
+## 0. CURRENT IMPLEMENTATION STATUS
+
+> **Snapshot taken:** February 22, 2026 — Hackathon demo deadline (6 PM ET)  
+> **Legend:** ✅ Done | ⚠️ Partial / needs wire-up | ❌ Not implemented | 🔧 Fixed today
+
+---
+
+### 0.1 — Backend Foundation
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| FastAPI server + CORS + health check | ✅ | `/api/v1/health` returns `{ status, db, version, timestamp }` |
+| All 11 SQLAlchemy ORM models | ✅ | `app/models/` — Firm, User, Case, Document, Witness, Session, Alert, Brief, RefreshToken, SessionEvent, AttorneyAnnotation |
+| PostgreSQL async engine + session factory | ✅ | `app/database.py` — asyncpg driver |
+| Redis client | ✅ | `app/redis_client.py` |
+| JWT auth middleware + login/refresh/logout | ✅ | `app/middleware/auth.py`, `app/routers/auth.py` |
+| Pydantic settings (`app/config.py`) | ✅ | All env vars declared |
+| Alembic migration chain | ✅ | 3 migrations (see §0.4) |
+| Seed scripts | 🔧 | `seed.py` + `seed_cases.py` — updated today to use `case_name`/`opposing_party` |
+
+---
+
+### 0.2 — AI Agents (`app/agents/`)
+
+| Agent | File | Status | Notes |
+|-------|------|--------|-------|
+| Interrogator | `interrogator.py` | ✅ | Claude streaming + Databricks prior-statement retrieval + aggression routing |
+| Objection Copilot | `objection.py` | ✅ | Databricks `fre_rules_index` → Claude FRE classification ≤1.5s |
+| Inconsistency Detector | `detector.py` | ✅ | Databricks `prior_statements_index` → Nemotron scoring → Claude fallback |
+| Review Orchestrator | `orchestrator.py` | ✅ | Claude brief synthesis; called at session end |
+| System Prompt Builder | `prompt.py` | ✅ | `build_system_prompt(case)` — case facts + 5-dim rubric + behavioral audio tags |
+| Agent Data Models | `models.py` | ✅ | `VerdictCase` Pydantic model (used by all agents) |
+
+---
+
+### 0.3 — Services (`app/services/`)
+
+| Service | File | Status | Notes |
+|---------|------|--------|-------|
+| Claude SDK wrapper | `claude.py` | ✅ | `claude_chat()` + `claude_stream()` |
+| ElevenLabs TTS/STT | `elevenlabs.py` | ✅ | `text_to_speech()`, `speech_to_text()`, `get_conversation_token()`, `build_conversation_override()` |
+| ElevenLabs Conversational AI (WS) | `elevenlabs2.py` | ✅ | Signed WebSocket session start for voiceagents integration |
+| Nemotron API | `nemotron.py` | ✅ | `score_contradiction()` with 5s timeout |
+| Databricks Vector Search | `databricks_vector.py` | ✅ | `search_fre_rules()`, `search_prior_statements()`, `upsert_prior_statement()`, `get_embedding()` |
+| Document ingestion pipeline | `ingestion.py` | ✅ | PDF/DOCX/TXT → S3 → Claude extract → Databricks upsert |
+| Text extraction | `text_extraction.py` | ✅ | pdfplumber (PDF), mammoth (DOCX), plain TXT |
+| AWS S3 | `s3.py` | ✅ | Presigned PUT/GET, download_bytes |
+| Aggression/Vulnerability scoring | `aggression.py` | ✅ | `score_witness()`, `score_vulnerability()` — heuristic rule-based |
+| Rule-based report generator | `report_generator.py` | ✅ | `generate_rule_based_report()` + coaching brief dict |
+| PDF report with radar chart | `pdf_report.py` | ✅ | reportlab + matplotlib 5-axis radar chart |
+
+---
+
+### 0.4 — Database Migrations (Alembic)
+
+| Revision | Description | Status |
+|----------|-------------|--------|
+| `a3946072bcfb` | Add `extractedFacts`, `priorStatements`, `exhibitList`, `focusAreas` to Case | ✅ Applied |
+| `89b5474f4498` | Add DB-level `DEFAULT NOW()` to all `updatedAt` columns (9 tables) | ✅ Applied |
+| `c7f3a1d82e04` 🔧 | **Sync Case schema with voiceagents** — rename `name→caseName`, `opposingFirm→opposingParty`; add `witnessName`, `witnessRole`, `aggressionLevel` | ⚠️ **Written — run `alembic upgrade head` to apply** |
+
+---
+
+### 0.5 — API Routers (`app/routers/`)
+
+| Router | Prefix | Status | Notes |
+|--------|--------|--------|-------|
+| `auth.py` | `/api/v1/auth` | ✅ | Login, refresh, logout, `/me` |
+| `cases.py` | `/api/v1/cases` | 🔧 | **Updated today**: all endpoints rewritten to use `case_name`, `opposing_party`, `witness_name`, `witness_role`, `aggression_level`; `UpdateCaseRequest` now typed |
+| `sessions.py` | `/api/v1/sessions` | 🔧 | **Updated today**: `_build_verdict_case()` updated to read new Case columns; aggression falls back through `case.aggression_level → session.aggression → "Medium"` |
+| `briefs.py` | `/api/v1/briefs` | 🔧 | **Updated today**: `session.case.case_name` (was `.name`); aggression default changed from `"STANDARD"` to `"Medium"` |
+| `witnesses.py` | `/api/v1/cases` | ✅ | CRUD for Witness model |
+| `documents.py` | `/api/v1` | ✅ | Presign, confirm-upload, ingestion status, fact review |
+| `conversations.py` | `/api/v1/conversations` | ✅ | ElevenLabs Conversational AI session start/end |
+| `tts.py` | `/api/v1/tts` | ✅ | Direct TTS endpoint |
+
+---
+
+### 0.6 — Case Schema Migration (Today's Core Work)
+
+> The ElevenLabs Conversational AI WebSocket service (`voiceagents/`) expects a flat `VerdictCase` Pydantic model with snake_case fields. The legacy Prisma-generated PostgreSQL schema used `name` and `opposingFirm`. All the following were updated atomically today:
+
+| File | Change |
+|------|--------|
+| `app/models/case.py` | Already had new columns pre-defined; confirmed correct |
+| `app/schemas/cases.py` | `CreateCaseRequest`, `UpdateCaseRequest`, `CaseOut` — all fields match voiceagents VerdictCase |
+| `app/routers/cases.py` | Rewrote all 5 endpoints; `UpdateCaseRequest` is now typed (was raw `dict`) |
+| `app/routers/sessions.py` | `_build_verdict_case()` uses `case.case_name`, `case.opposing_party`, `case.witness_name`, `case.witness_role`, `case.aggression_level` |
+| `app/routers/briefs.py` | `session.case.case_name` (was `session.case.name`) |
+| `scripts/seed.py` | `case_name=`, `opposing_party=` |
+| `scripts/seed_cases.py` | Same renames + now seeds `witness_name`, `witness_role`, `aggression_level` from JSON |
+| `scripts/verify_interrogator.py` | `Case.case_name` in SELECT/ORDER BY |
+| `alembic/versions/c7f3a1d82e04_sync_case_schema_with_voiceagents.py` | Migration file written (**run `alembic upgrade head`**) |
+
+---
+
+### 0.7 — Voiceagents Microservice (`voiceagents/`)
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| FastAPI app (`app/main.py`) | ✅ | Separate service; own `Dockerfile` + `requirements.txt` |
+| `VerdictCase` Pydantic model | ✅ | `app/models.py` — canonical flat schema; main backend now mirrors it |
+| Session start router (`routers/sessions.py`) | ✅ | Calls `get_conversation_token()` + `build_conversation_override()` → returns signed WS URL |
+| Conversation router (`routers/conversations.py`) | ✅ | ElevenLabs conversation lifecycle |
+| TTS router (`routers/tts.py`) | ✅ | Direct ElevenLabs TTS |
+| Analysis router (`routers/analysis.py`) | ✅ | Post-session analysis endpoint |
+| Reports router (`routers/reports.py`) | ✅ | Brief/report generation |
+| System prompt (`app/prompt.py`) | ✅ | `build_system_prompt(case)` — shared logic with main backend |
+
+---
+
+### 0.8 — Frontend (`verdict-frontend/design-first-focus/`)
+
+| Page / Component | Status | Notes |
+|-----------------|--------|-------|
+| `LandingPage.tsx` | ✅ | Marketing landing |
+| `LoginPage.tsx` | ✅ | Email + password |
+| `OnboardingPage.tsx` | ✅ | Firm setup flow |
+| `DashboardPage.tsx` | ⚠️ | Scaffolded; likely mock data — needs real `/api/v1/cases` integration |
+| `CaseListPage.tsx` | ⚠️ | Scaffolded; needs updated API field names (`caseName` not `name`) |
+| `NewCasePage.tsx` | ⚠️ | Scaffolded; must POST `caseName`, `witnessName`, `witnessRole`, `aggressionLevel` |
+| `CaseDetailPage.tsx` | ⚠️ | Scaffolded + case-tabs subpages |
+| `SessionConfigPage.tsx` | ⚠️ | Scaffolded |
+| `SessionLobbyPage.tsx` | ⚠️ | Scaffolded |
+| `LiveSessionPage.tsx` | ⚠️ | Three-panel layout scaffolded; alert rail + transcript wiring needed |
+| `WitnessSessionPage.tsx` | ⚠️ | Scaffolded; ElevenLabs WS integration needed |
+| `PostSessionPage.tsx` | ⚠️ | Scaffolded |
+| `BriefViewerPage.tsx` | ⚠️ | Scaffolded; Recharts radar needed |
+| `WitnessProfilePage.tsx` | ⚠️ | Scaffolded (P1.1) |
+| `FactReviewPage.tsx` | ⚠️ | Scaffolded |
+| `AdminPage.tsx` | ⚠️ | Scaffolded |
+| `SettingsPage.tsx` | ⚠️ | Scaffolded |
+
+> **Frontend note:** Most pages are Lovable-scaffolded with mock/static data. The primary integration gap is wiring `axios` calls to the live backend using the updated field names from today's schema change (e.g., `caseName`, `opposingParty`, `witnessName`).
+
+---
+
+### 0.9 — What Still Needs Doing Before Demo
+
+| # | Task | Priority | Owner |
+|---|------|----------|-------|
+| 1 | **Run `alembic upgrade head`** to apply migration `c7f3a1d82e04` on Supabase | 🔴 P0 — blocks everything | Nikhil |
+| 2 | **Re-seed DB** after migration: `python scripts/seed_cases.py` | 🔴 P0 | Nikhil |
+| 3 | **Frontend API integration** — replace mock data with live `/api/v1/cases` calls using new field names | 🔴 P0 | Dhanush |
+| 4 | **Live session alert rail** — wire SSE `QUESTION_CHUNK` / `objection_alert` / `inconsistency_alert` events to React state | 🔴 P0 | Dhanush + M4 |
+| 5 | **ElevenLabs Conversational AI** — `WitnessSessionPage` connects to signed WS URL from `/api/v1/conversations` | 🔴 P0 | M4 |
+| 6 | **End-to-end demo walkthrough** — login → create case → upload doc → start session → see alerts → view brief | 🔴 P0 | All |
+| 7 | Verify `GET /api/v1/health` on Railway/Render returns `db: connected` | 🟡 P1 | Nikhil |
+| 8 | Brief PDF generation + S3 presigned GET working | 🟡 P1 | Aman |
+| 9 | FRE corpus ingested into Databricks `fre_rules_index` (`scripts/fre_xml_ingestion.py`) | 🟡 P1 | Aman |
+| 10 | Behavioral Sentinel (P1.4) — NOT implementing; time budget exhausted | ⚪ Cut | — |
+| 11 | SAML SSO — NOT implementing; email+password sufficient for demo | ⚪ Cut | — |
 
 ---
 

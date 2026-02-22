@@ -227,9 +227,9 @@ async def _generate_brief_background(session_id: str, brief_id: str):
             try:
                 report = generate_rule_based_report(
                     transcript_text="\n".join(transcript_lines),
-                    case_name=session.case.name if session.case else "Unknown",
+                    case_name=session.case.case_name if session.case else "Unknown",
                     witness_name=session.witness.name if session.witness else "Unknown",
-                    aggression_level=session.aggression or "STANDARD",
+                    aggression_level=session.aggression or "Medium",
                     timeline=timeline,
                     alerts=alerts_data,
                 )

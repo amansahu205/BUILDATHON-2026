@@ -35,8 +35,8 @@ async def main():
         db.add_all([sarah, james, admin])
         await db.flush()
 
-        case1 = Case(id="seed-case-chen-v-metro", firm_id="firm-demo", owner_id=sarah.id, name="Chen v. Metropolitan Hospital", case_type="MEDICAL_MALPRACTICE", opposing_firm="Defense Partners LLP")
-        case2 = Case(id="seed-case-thompson-v-axiom", firm_id="firm-demo", owner_id=sarah.id, name="Thompson v. Axiom Industries", case_type="EMPLOYMENT_DISCRIMINATION", opposing_firm="Axiom Legal Team")
+        case1 = Case(id="seed-case-chen-v-metro", firm_id="firm-demo", owner_id=sarah.id, case_name="Chen v. Metropolitan Hospital", case_type="MEDICAL_MALPRACTICE", opposing_party="Defense Partners LLP")
+        case2 = Case(id="seed-case-thompson-v-axiom", firm_id="firm-demo", owner_id=sarah.id, case_name="Thompson v. Axiom Industries", case_type="EMPLOYMENT_DISCRIMINATION", opposing_party="Axiom Legal Team")
         db.add_all([case1, case2])
         await db.flush()
 

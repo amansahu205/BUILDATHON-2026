@@ -4,6 +4,7 @@
 > Runtime: Python 3.12 | Framework: FastAPI 0.115.6 | ORM: SQLAlchemy 2.0 + Alembic
 
 <!-- Updated: Feb 22 2026 — Nia removed, Databricks Vector Search added, voiceagents integrated -->
+<!-- Updated: Feb 22 2026 18:00 — Case schema synced with voiceagents VerdictCase: name→caseName, opposingFirm→opposingParty, added witnessName/witnessRole/aggressionLevel; all routers updated -->
 
 ---
 
@@ -205,6 +206,11 @@ VERDICT's backend is a **FastAPI monolith with clear module boundaries**, exposi
 
 ### Table: `cases`
 
+> 🔧 **Updated Feb 22, 2026** — Schema synced with voiceagents `VerdictCase` model.  
+> Renamed: `name → caseName`, `opposingFirm → opposingParty`.  
+> Added: `witnessName`, `witnessRole`, `aggressionLevel`.  
+> Migration: `c7f3a1d82e04_sync_case_schema_with_voiceagents` (run `alembic upgrade head`).
+
 **Purpose:** The primary entity — a legal matter for which deposition prep is being conducted.
 
 | Column | Type | Constraints | Description |
@@ -212,25 +218,43 @@ VERDICT's backend is a **FastAPI monolith with clear module boundaries**, exposi
 | `id` | `VARCHAR(30)` | PK, NOT NULL | CUID |
 | `firm_id` | `VARCHAR(30)` | FK → firms.id ON DELETE CASCADE, NOT NULL | Owning firm |
 | `owner_id` | `VARCHAR(30)` | FK → users.id ON DELETE RESTRICT, NOT NULL | Attorney who created the case |
-| `name` | `VARCHAR(255)` | NOT NULL | e.g., "Chen v. Metropolitan Hospital" |
-| `case_type` | `VARCHAR(50)` | NOT NULL | 'MEDICAL_MALPRACTICE', 'EMPLOYMENT_DISCRIMINATION', 'COMMERCIAL_DISPUTE', 'CONTRACT_BREACH', 'OTHER' |
-| `case_type_custom` | `VARCHAR(255)` | NULL | Free-text for 'OTHER' case type |
-| `opposing_firm` | `VARCHAR(255)` | NULL | Opposing counsel firm name |
-| `deposition_date` | `DATE` | NULL | Target deposition date for countdown badge |
-| `extracted_facts` | `TEXT` | NULL | Key facts, incidents, violations extracted from uploaded case documents (used by build_system_prompt) |
-| `prior_statements` | `TEXT` | NULL | Contradictory witness statements across contexts (used by build_system_prompt) |
-| `exhibit_list` | `TEXT` | NULL | Specific exhibits: dashcam, emails, reports, financial records (used by build_system_prompt) |
-| `focus_areas` | `TEXT` | NULL | Attorney-defined attack vectors for interrogation strategy (used by build_system_prompt) |
-| `is_archived` | `BOOLEAN` | NOT NULL, DEFAULT FALSE | Soft delete / archive |
-| `created_at` | `TIMESTAMP` | NOT NULL, DEFAULT NOW() | Record creation |
-| `updated_at` | `TIMESTAMP` | NOT NULL, DEFAULT NOW() | Last modification |
+| `caseName` | `VARCHAR(255)` | NOT NULL | e.g., `"Chen v. Metropolitan Hospital"` *(was `name`)* |
+| `caseType` | `VARCHAR(50)` | NOT NULL | `'MEDICAL_MALPRACTICE'`, `'EMPLOYMENT_DISCRIMINATION'`, `'COMMERCIAL_DISPUTE'`, `'CONTRACT_BREACH'`, `'OTHER'` |
+| `caseTypeCustom` | `VARCHAR(255)` | NULL | Free-text for `'OTHER'` case type |
+| `opposingParty` | `VARCHAR(255)` | NULL | Opposing counsel / party name *(was `opposingFirm`)* |
+| `depositionDate` | `TIMESTAMP` | NULL | Target deposition date for countdown badge |
+| `witnessName` | `VARCHAR(255)` | NULL | Primary witness full name — denormalised from Witness for voiceagents |
+| `witnessRole` | `VARCHAR(255)` | NULL | Witness role/title — denormalised from Witness for voiceagents |
+| `aggressionLevel` | `VARCHAR(20)` | NULL | `'Low'`, `'Medium'`, `'High'` — per-case default; overridable per session |
+| `extractedFacts` | `TEXT` | NULL | Key facts extracted from uploaded documents (used by `build_system_prompt`) |
+| `priorStatements` | `TEXT` | NULL | Contradictory witness statements (used by `build_system_prompt`) |
+| `exhibitList` | `TEXT` | NULL | Specific exhibits: dashcam, emails, financial records (used by `build_system_prompt`) |
+| `focusAreas` | `TEXT` | NULL | Attorney-defined attack vectors for interrogation strategy |
+| `isArchived` | `BOOLEAN` | NOT NULL, DEFAULT FALSE | Soft delete / archive |
+| `createdAt` | `TIMESTAMP` | NOT NULL, DEFAULT NOW() | Record creation |
+| `updatedAt` | `TIMESTAMP` | NOT NULL, DEFAULT NOW() | Last modification |
+
+**SQLAlchemy mapped attributes** (Python snake_case → DB camelCase):
+
+```python
+case.case_name       → "caseName"
+case.case_type       → "caseType"
+case.opposing_party  → "opposingParty"
+case.witness_name    → "witnessName"
+case.witness_role    → "witnessRole"
+case.aggression_level → "aggressionLevel"
+case.extracted_facts → "extractedFacts"
+case.prior_statements → "priorStatements"
+case.exhibit_list    → "exhibitList"
+case.focus_areas     → "focusAreas"
+```
 
 **Indexes:**
 - `PRIMARY KEY (id)`
 - `INDEX cases_firm_id_idx (firm_id)`
 - `INDEX cases_owner_id_idx (owner_id)`
-- `INDEX cases_firm_archived_idx (firm_id, is_archived)` — dashboard listing
-- `INDEX cases_deposition_date_idx (firm_id, deposition_date)` — sorted by soonest deposition
+- `INDEX cases_firm_archived_idx (firm_id, isArchived)` — dashboard listing
+- `INDEX cases_deposition_date_idx (firm_id, depositionDate)` — sorted by soonest deposition
 
 **Relationships:**
 - Many cases → One `firms`

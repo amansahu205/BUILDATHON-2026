@@ -83,11 +83,12 @@ async def main():
                 id=raw["id"],
                 firm_id=firm.id,
                 owner_id=owner.id,
-                name=raw["case_name"],
+                case_name=raw["case_name"],
                 case_type=case_type,
-                opposing_firm=raw.get("opposing_party", ""),
-                deposition_date=dep_date,
-                extracted_facts=raw.get("extracted_facts", ""),
+                opposing_party=raw.get("opposing_party", ""),
+                deposition_date=dep_date,                witness_name=raw.get("witness_name", ""),
+                witness_role=raw.get("witness_role", ""),
+                aggression_level=raw.get("aggression_level", "Medium"),                extracted_facts=raw.get("extracted_facts", ""),
                 prior_statements=raw.get("prior_statements", ""),
                 exhibit_list=raw.get("exhibit_list", ""),
                 focus_areas=raw.get("focus_areas", ""),
@@ -132,7 +133,7 @@ async def main():
 
     async with AsyncSessionLocal() as db:
         result = await db.execute(
-            select(Case.id, Case.name, Case.extracted_facts).order_by(Case.name)
+            select(Case.id, Case.case_name, Case.extracted_facts).order_by(Case.case_name)
         )
         rows = result.fetchall()
         for row in rows:

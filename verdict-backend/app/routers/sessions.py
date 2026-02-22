@@ -31,22 +31,25 @@ def _build_verdict_case(session: Session) -> VerdictCase:
     """Assemble a VerdictCase from the ORM objects attached to a Session.
 
     Requires session.case and session.witness to be eager-loaded before calling.
+    Prefers the denormalised columns on Case (witnessName, witnessRole,
+    aggressionLevel) that were added to match the voiceagents VerdictCase
+    schema, falling back to the related Witness row for backwards-compat.
     """
     case = session.case
     witness = session.witness
     return VerdictCase(
         id=case.id,
-        case_name=case.name,
+        case_name=case.case_name,
         case_type=case.case_type,
-        opposing_party=case.opposing_firm or "opposing party",
+        opposing_party=case.opposing_party or "opposing party",
         deposition_date=case.deposition_date.isoformat() if case.deposition_date else "TBD",
-        witness_name=witness.name if witness else "Unknown",
-        witness_role=witness.role if witness else "OTHER",
+        witness_name=case.witness_name or (witness.name if witness else "Unknown"),
+        witness_role=case.witness_role or (witness.role if witness else "OTHER"),
         extracted_facts=case.extracted_facts or "",
         prior_statements=case.prior_statements or "",
         exhibit_list=case.exhibit_list or "",
         focus_areas=", ".join(session.focus_areas) if session.focus_areas else "",
-        aggression_level=session.aggression or "STANDARD",
+        aggression_level=case.aggression_level or session.aggression or "Medium",
     )
 
 

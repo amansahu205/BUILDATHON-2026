@@ -13,7 +13,7 @@ async def check():
         assert case.prior_statements and len(case.prior_statements) > 50, 'prior_statements empty'
         assert case.exhibit_list and len(case.exhibit_list) > 50, 'exhibit_list empty'
         assert case.focus_areas and len(case.focus_areas) > 50, 'focus_areas empty'
-        print(f'Case: {case.name}')
+        print(f'Case: {case.case_name}')
         print(f'Facts: {case.extracted_facts[:100]}...')
         print(f'Prior statements: {case.prior_statements[:100]}...')
         print(f'Exhibit list: {case.exhibit_list[:100]}...')
@@ -21,7 +21,7 @@ async def check():
         print('ALL CHECKS PASSED - interrogator has data to work with')
 
         # Also show all cases
-        all_result = await db.execute(select(Case.id, Case.name, Case.extracted_facts).order_by(Case.name))
+        all_result = await db.execute(select(Case.id, Case.case_name, Case.extracted_facts).order_by(Case.case_name))
         rows = all_result.fetchall()
         print(f'\nAll {len(rows)} cases in DB:')
         for row in rows:
