@@ -252,7 +252,8 @@ See [`verdict-backend/.env.example`](verdict-backend/.env.example) for the full 
 | `ANTHROPIC_API_KEY` | ✅ | Claude API for Interrogator + Review agents |
 | `ELEVENLABS_API_KEY` | ⚡ | TTS/STT for voice sessions |
 | `NEMOTRON_API_KEY` | ⚡ | NVIDIA contradiction scoring |
-| `NIA_API_KEY` | ⚡ | Nozomio document indexing + RAG |
+| `DATABRICKS_HOST` | ⚡ | Databricks workspace URL (Vector Search) |
+| `DATABRICKS_TOKEN` | ⚡ | Databricks personal access token (dapi...) |
 | `AWS_ACCESS_KEY_ID` | ⚡ | S3 document storage |
 
 > ⚡ = Required for full AI features; optional for core auth + case management

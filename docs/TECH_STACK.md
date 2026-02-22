@@ -2,6 +2,7 @@
 > AI-Powered Deposition Coaching & Trial Preparation Platform  
 > Version: 1.0.0 — Hackathon Edition | February 21, 2026  
 > Team: VoiceFlow Intelligence | Track: AI Automation — August.law Sponsor Track
+<!-- Updated: Feb 22 2026 — Nia removed, Databricks Vector Search added, voiceagents integrated -->
 
 ---
 
@@ -49,7 +50,7 @@
 │                                │                                      │
 │  ┌─────────────────────────────▼───────────────────────────────────┐ │
 │  │                    EXTERNAL SERVICES                             │ │
-│  │  ElevenLabs │ Claude SDK │ Nemotron │ Nia API │ Databricks      │ │
+│  │  ElevenLabs │ Claude SDK │ Nemotron │ Databricks Vector Search   │ │
 │  └─────────────────────────────────────────────────────────────────┘ │
 │                                                                        │
 │  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐    │
@@ -63,7 +64,7 @@
 
 | Environment | Frontend | Backend | Database |
 |-------------|----------|---------|----------|
-| **Hackathon (MVP)** | Vercel (hobby) | Railway | Supabase (PostgreSQL) + Upstash (Redis) |
+| **Hackathon (MVP)** | Vercel (hobby) / Lovable | Railway (primary) + Render (backup) | Supabase (PostgreSQL) + Upstash (Redis) |
 | **v1.0 Commercial** | Vercel (Pro) | Fly.io (dedicated) | AWS RDS PostgreSQL + ElastiCache Redis |
 | **v2.0 Scale** | Vercel Enterprise | AWS ECS (containerized) | AWS RDS Multi-AZ + ElastiCache cluster |
 
@@ -268,42 +269,35 @@ The following packages are specified in the PRD but **not yet installed** in the
 
 **AWS S3** (via AWS SDK v3)
 
-**@aws-sdk/client-s3 3.726.1**
-- Docs: https://docs.aws.amazon.com/AWSJavaScriptSDK/v3/latest/client/s3/
+**boto3 1.35.0** (Python AWS SDK)
+- Docs: https://boto3.amazonaws.com/v1/documentation/api/latest/index.html
 - License: Apache-2.0
-- Reason: Up to 200MB document uploads (PRD §P0.4). S3 multipart upload for files >5MB. Pre-signed URLs for direct browser-to-S3 upload (bypasses the API server for large files). Separate buckets per firm (case data isolation). Lifecycle policy: auto-delete after 90 days (PRD §8.2).
+- Reason: Up to 200MB document uploads (PRD §P0.4). Presigned PUT URLs for direct browser-to-S3 upload (bypasses the API server for large files). Presigned GET URLs for secure document downloads. Lifecycle policy: auto-delete after 90 days (PRD §8.2).
+- Service module: `app/services/s3.py` — `generate_presigned_upload()`, `generate_presigned_download()`, `upload_bytes()`, `download_bytes()`
 - Alternatives rejected:
   - **Cloudinary**: Image/video CDN — wrong tool for PDF/DOCX.
-  - **Vercel Blob**: 500MB max per file vs S3's 5TB; less control over access policies.
   - **Local disk**: Not viable across multiple server instances; not durable.
-
-**@aws-sdk/s3-request-presigner 3.726.1**
-- License: Apache-2.0
-- Reason: Generates pre-signed URLs for direct browser uploads without routing through the API server.
-
-**@aws-sdk/lib-storage 3.726.1**
-- License: Apache-2.0
-- Reason: Managed multipart upload for large case documents.
 
 ### Document Processing
 
-**pdf-parse 1.1.1** (PDF text extraction for validation before sending to Nia)
-- Docs: https://gitlab.com/autokent/pdf-parse
+**pdfplumber 0.11.x** (PDF text extraction — planned, wire during ingestion pipeline)
+- Docs: https://github.com/jsvine/pdfplumber
 - License: MIT
-- Reason: Pre-screens uploaded PDFs to confirm text is extractable before kicking off the expensive Nia ingestion pipeline. Catches "image-only" PDFs early (PRD error state: "No text content found").
+- Reason: Extracts text and tables from uploaded PDFs before Databricks Vector Search upsert. Catches image-only PDFs early. Pure-Python, no system dependencies required on Railway/Fly.io.
 
-**mammoth 1.8.0** (DOCX text extraction)
-- Docs: https://github.com/mwilliamson/mammoth.js
-- License: BSD-2-Clause
-- Reason: Converts uploaded DOCX files to clean text for Nia ingestion without requiring LibreOffice.
+**python-docx 1.1.x** (DOCX text extraction — planned, wire during ingestion pipeline)
+- Docs: https://python-docx.readthedocs.io
+- License: MIT
+- Reason: Reads DOCX uploads without requiring LibreOffice. Extracts paragraphs and table cells for ingestion into the prior_statements_index.
 
-**puppeteer 22.15.0** (server-side PDF generation for coaching briefs)
-- Docs: https://pptr.dev
-- License: Apache-2.0
-- Reason: Renders the coaching brief React component server-side to PDF with full CSS fidelity. Headless Chrome in a Docker container on Railway/Fly.io. The brief PDF must match the browser view exactly (PRD §P0.5 requirement: brief exportable as PDF).
+**reportlab 4.2.0 + matplotlib 3.9.0** (server-side PDF generation for coaching briefs)
+- Docs: https://www.reportlab.com/docs/ | https://matplotlib.org
+- License: BSD
+- Reason: `app/services/pdf_report.py` — `generate_pdf()` renders the coaching brief as a structured PDF. Matplotlib draws the 5-axis performance radar chart as a PNG embedded via ReportLab. Runs headlessly in any Python environment with no browser dependency.
+- Service module: `app/services/pdf_report.py` → `generate_pdf(brief_data, output_path)`
 - Alternatives rejected:
-  - **@react-pdf/renderer** (server-side only): Custom PDF DSL doesn't render Recharts radar chart; would require a separate SVG export path.
-  - **jsPDF**: Client-side only; cannot run in server environment without a browser.
+  - **Puppeteer / headless Chrome**: Node.js only; incompatible with Python backend; adds heavy Docker layer (~350 MB Chrome binary).
+  - **WeasyPrint**: Complex CSS/font support requires system libs (Pango, Cairo) not available on lightweight Railway buildpacks.
 
 ### Email
 
@@ -355,7 +349,7 @@ The following packages are specified in the PRD but **not yet installed** in the
 - Role in VERDICT:
   - **Interrogator Agent**: Question strategy, adaptive follow-up generation, topic arc management
   - **Objection Copilot**: FRE rule classification (Leading, Hearsay, Compound, Assumes Facts, Speculation)
-  - **Inconsistency Detector**: Semantic comparison of witness answers against Nia-returned prior statements
+  - **Inconsistency Detector**: Semantic comparison of witness answers against Databricks Vector Search-returned prior statements
   - **Review Orchestrator**: Coaching brief synthesis, narrative generation, top-3 recommendations
 - Integration pattern: Streaming responses via `stream: true` for the Interrogator (reduces time-to-first-audio). Tool use for structured Nemotron handoff.
 
@@ -384,27 +378,35 @@ The following packages are specified in the PRD but **not yet installed** in the
 - Fallback: If Nemotron response >5s or errors, falls back to Claude-only scoring with threshold raised from 0.75 to 0.85 (PRD Decision Point 5.4)
 - Budget: $40+ API credits from hackathon organizers
 
-### Nozomio Nia API (Document Indexing & RAG)
+### Databricks Vector Search (Shared Knowledge Layer — RAG)
 
-**HTTP Client: httpx 0.28.1** (async client via `httpx.AsyncClient`)
-- Docs: Provided via hackathon Nia API documentation
-- Role: 
-  - FRE rules corpus indexing (Objection Copilot knowledge base)
-  - Case document indexing (prior sworn statement retrieval for Inconsistency Detector)
-  - Semantic search returning top-N prior statement matches with page/line references
-- Integration: All 4 agents query Nia for context before generating outputs — Nia is the shared knowledge layer
-
-### Databricks (Analytics & Delta Lake)
-
-**@databricks/sql 1.10.0**
-- Docs: https://docs.databricks.com/aws/en/dev-tools/node-sql-driver/
+**databricks-vectorsearch 0.64** + **databricks-sdk 0.40.0** (Python packages)
+- Docs: https://docs.databricks.com/en/generative-ai/vector-search.html
 - License: Apache-2.0
-- Role:
-  - Delta Lake: Session event storage (objection events, inconsistency flags, emotion vectors from Behavioral Sentinel)
-  - Delta Live Tables: Real-time Witness Composure Timeline (P1.4 — emotion vectors + audio latency + semantic flags on one time axis)
-  - Weakness Map (P1.2): Databricks-powered radar chart queries via SQL
-  - MLflow (P2.3): Case outcome analytics (post-hackathon)
+- Role: Replaces all prior RAG/indexing needs. Two separate Direct Access indexes:
+  1. **`verdict.sessions.fre_rules_index`** — Full Federal Rules of Evidence corpus (Rules 101–1103, all 11 Articles). Source: official uscode.house.gov XML (USLM schema), current through Public Law 119-73 (January 2026). Two chunk types per rule: rule text + Advisory Committee Notes. Queried by Objection Copilot. Filtered to `is_deposition_relevant: true` at query time.
+  2. **`verdict.sessions.prior_statements_index`** — Prior sworn statements extracted from uploaded case documents. Upserted during document ingestion. Queried by Inconsistency Detector filtered by `case_id`.
+- **Embeddings:** Databricks Foundation Model API — `databricks-gte-large-en`, 1024 dimensions. No separate embedding package needed.
+- **Endpoint:** `verdict-vector-endpoint` (type: STANDARD, Direct Vector Access Index)
+- **One-time setup scripts:**
+  - `scripts/setup_databricks.py` — creates endpoint + both indexes
+  - `scripts/fre_xml_ingestion.py` — parses USLM XML, generates embeddings, upserts FRE corpus. Run once before demo.
+- **Unity Catalog prerequisite:** Must be enabled in the Databricks workspace (verify "Catalog" in left sidebar)
+
+### Databricks (Analytics, Delta Lake & Foundation Models)
+
+**databricks-vectorsearch 0.64** + **databricks-sdk 0.40.0** (Python)
+- Docs: https://docs.databricks.com/en/generative-ai/vector-search.html
+- License: Apache-2.0
+- Role (Phase 2 — core RAG layer):
+  - **Vector Search:** Two Direct Access indexes (`fre_rules_index`, `prior_statements_index`) — see above
+  - **Foundation Model API:** `databricks-gte-large-en` (1024d) for embedding generation
+  - **Delta Lake:** `verdict.sessions.session_events` table — session events streamed from FastAPI via SQL connector
+  - **Delta Live Tables:** Real-time Witness Composure Timeline (Phase 4 — emotion vectors + audio latency on one time axis)
+  - **Weakness Map SQL:** Radar chart score queries via Databricks SQL (Phase 4)
+  - **MLflow (P2.3):** Case outcome analytics — post-hackathon
 - Connection: Databricks workshop credits; SQL warehouse endpoint
+- New env vars: `DATABRICKS_VECTOR_ENDPOINT`, `DATABRICKS_VECTOR_INDEX`, `DATABRICKS_FRE_INDEX`
 
 ### MediaPipe (Client-Side Only — Behavioral Sentinel)
 
@@ -421,7 +423,7 @@ The following packages are specified in the PRD but **not yet installed** in the
 
 ## 5. DATABASE SCHEMA & DATA LAYER
 
-### Core Schema (SQLAlchemy / original Prisma spec)
+### Core Schema (SQLAlchemy models — `app/models/`)
 
 ```prisma
 // prisma/schema.prisma
@@ -503,7 +505,7 @@ model Document {
   mimeType        String
   docType         DocumentType
   ingestionStatus IngestionStatus   @default(PENDING)
-  niaIndexId      String?           // Nia's internal document ID post-indexing
+  databricks_doc_id VARCHAR(255)?    -- Databricks Vector Search document reference ID post-indexing
   extractedFacts  Json?             // structured fact extraction result
   pageCount       Int?
   ingestionError  String?
@@ -644,21 +646,33 @@ enum AttyDecision {
 }
 
 model Brief {
-  id                   String   @id @default(cuid())
-  sessionId            String   @unique
-  firmId               String
-  sessionScore         Int
-  consistencyRate      Float
-  improvementDelta     Int?     // vs session 1 for this witness
-  confirmedFlags       Int
-  objectionCount       Int
-  composureAlerts      Int
-  topRecommendations   String[] // array of 3 recommendation strings
-  narrativeText        String   // full Claude-generated narrative
-  pdfS3Key             String?  // S3 key for rendered PDF
-  shareToken           String?  @unique  // 7-day expiring token
-  shareTokenExpiresAt  DateTime?
-  weaknessMapScores    Json?    // { timeline: 78, financial: 34, ... }
+  id                        String            @id @default(cuid())
+  sessionId                 String            @unique
+  firmId                    String
+  witnessId                 String            -- FK to witnesses
+  generationStatus          String            -- 'PENDING' | 'GENERATING' | 'COMPLETE' | 'FAILED'
+  generationStartedAt       DateTime?
+  generationCompletedAt     DateTime?
+  generationError           String?
+  sessionScore              Int
+  consistencyRate           Float
+  deltaVsBaseline           Int?
+  confirmedFlags            Int
+  objectionCount            Int
+  composureAlertCount       Int               -- renamed from composureAlerts for clarity
+  topRecommendations        String[]
+  narrativeText             String
+  weaknessMapScores         Json?
+  elevenlabsAudioManifest   Json?             -- [{alertId, s3Key}] coach voice clips
+  shareToken                String?           @unique
+  shareTokenIssuedAt        DateTime?
+  shareTokenExpiresAt       DateTime?
+  pdfS3Key                  String?
+  pdfGeneratedAt            DateTime?
+  createdAt                 DateTime          @default(now())
+  updatedAt                 DateTime          @updatedAt
+  session                   Session           @relation(fields: [sessionId], references: [id])
+}
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
   session              Session  @relation(fields: [sessionId], references: [id])
@@ -669,17 +683,17 @@ model Brief {
 
 - **Tool:** Alembic (`alembic revision --autogenerate` for development, `alembic upgrade head` for production CI)
 - **Naming convention:** `YYYYMMDD_HHMMSS_description` (e.g., `20260221_120000_add_behavioral_sentinel_columns`)
-- **Production deploys:** Migration runs in CI before server restart; Prisma's `migrate deploy` is safe for additive changes (add column, add table). Destructive changes (drop column) require a two-phase deploy: first shadow the column, then drop after server restart.
+- **Production deploys:** `alembic upgrade head` runs before server restart (Railway start command handles this automatically). Additive changes (add column, add table) are safe. Destructive changes (drop column) require a two-phase deploy: first shadow the column, then drop after server restart.
 - **Branching:** Each feature branch creates its own migration file; migrations are squashed before merging to `main`.
 
 ### Seeding Approach
 
-```typescript
-// prisma/seed.ts
-// Development seeds: 1 firm, 3 users (partner + associate + admin), 
-// 2 cases (Medical Malpractice, Employment Discrimination),
-// 5 documents, 3 witnesses, 3 complete sessions with alerts + briefs
-// Run: python scripts/seed.py
+```python
+# scripts/seed.py — Development seeds
+# Creates: 1 firm, 3 users (partner + associate + admin),
+# 5 demo cases (from verdict-backend/data/verdict_cases.json),
+# documents, witnesses, sessions with alerts + briefs
+# Run: python scripts/seed.py && python scripts/seed_cases.py
 ```
 
 ### Backup Policy
@@ -693,7 +707,7 @@ model Brief {
 
 ### Connection Pooling
 
-**Hackathon:** Prisma built-in connection pool (`connection_limit=10` in DATABASE_URL)  
+**Hackathon:** SQLAlchemy `create_async_engine` with `pool_size=10, max_overflow=5`  
 **Production:** PgBouncer in transaction mode via `DATABASE_URL` pointing to pooler endpoint  
 **Max connections:** PostgreSQL configured at 100; PgBouncer pools to 20 per FastAPI instance
 
@@ -813,14 +827,22 @@ jobs:
 - Edge middleware for JWT validation (runs at edge, not in Lambda)
 - ISR (Incremental Static Regeneration) for marketing landing page
 
-#### Backend — Railway (Hackathon) → Fly.io (Production)
+#### Backend — Railway (Primary Hackathon) + Render (Backup) → Fly.io (Production)
 
-**Hackathon (Railway):**
+**Hackathon (Railway — primary):**
 - Starter plan ($5/month)
 - Single Uvicorn/FastAPI container
 - Auto-deploy from `main` via Railway GitHub integration
-- Start command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-- Internal URL exposed to Vercel via `BACKEND_URL` env var
+- Start command: `alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+- Config files: `Procfile`, `railway.toml`, `.python-version`, `nixpacks.toml`
+- Health check path: `/api/v1/health`
+- Post-deploy seed: `railway run python scripts/seed.py && railway run python scripts/seed_cases.py`
+
+**Hackathon (Render — backup insurance):**
+- Reason: Railway had outages on Feb 11, Nov 20, Nov 25, Dec 16 2025. Backup URL kept hot for instant failover.
+- Config: `render.yaml` in `verdict-backend/`
+- Same start command as Railway
+- Deploy separately via Render dashboard; swap `VITE_API_BASE_URL` if Railway fails
 
 **Production v1.0 (Fly.io):**
 - 2× `performance-2x` machines (4 CPU, 8GB RAM)
@@ -852,7 +874,7 @@ fly deploy --config fly.toml --dockerfile Dockerfile.production
 ### Monitoring
 
 **Error Tracking: Sentry 8.51.0**
-- `@sentry/nextjs 8.51.0` (frontend)
+- `@sentry/react 8.51.0` (frontend)
 - `@sentry/node 8.51.0` (backend)
 - Docs: https://docs.sentry.io
 - Alerts: PagerDuty on-call for error rate >2% over 5 minutes
@@ -1020,32 +1042,32 @@ VS Code settings (`.vscode/settings.json`):
 
 ## 8. ENVIRONMENT VARIABLES
 
-### Frontend (Next.js — `.env.local`)
+### Frontend (Vite+React — `.env`)
 
 ```bash
 # App
-NEXT_PUBLIC_APP_URL="http://localhost:3000"
-NEXT_PUBLIC_API_URL="http://localhost:4000"
-NEXT_PUBLIC_APP_ENV="development"
+VITE_APP_URL="http://localhost:5173"
+VITE_API_BASE_URL="http://localhost:4000"
+VITE_APP_ENV="development"
 
-# Socket.io
-NEXT_PUBLIC_SOCKET_URL="http://localhost:4000"
+# WebSocket
+VITE_SOCKET_URL="http://localhost:4000"
 
 # Sentry (frontend)
-NEXT_PUBLIC_SENTRY_DSN="https://xxx@ooo.ingest.sentry.io/xxx"
+VITE_SENTRY_DSN="https://xxx@ooo.ingest.sentry.io/xxx"
 SENTRY_ORG="voiceflow-intelligence"
 SENTRY_PROJECT="verdict-frontend"
 SENTRY_AUTH_TOKEN="sntrys_xxx"
 
 # PostHog Analytics
-NEXT_PUBLIC_POSTHOG_KEY="phc_xxx"
-NEXT_PUBLIC_POSTHOG_HOST="https://app.posthog.com"
+VITE_POSTHOG_KEY="phc_xxx"
+VITE_POSTHOG_HOST="https://app.posthog.com"
 
 # MediaPipe (Behavioral Sentinel)
-NEXT_PUBLIC_MEDIAPIPE_MODEL_URL="/models/face_landmarker.task"
+VITE_MEDIAPIPE_MODEL_URL="/models/face_landmarker.task"
 
 # Feature Flags
-NEXT_PUBLIC_BEHAVIORAL_SENTINEL_ENABLED="false"
+VITE_BEHAVIORAL_SENTINEL_ENABLED="false"
 ```
 
 ### Backend (FastAPI — `.env`)
@@ -1055,7 +1077,7 @@ NEXT_PUBLIC_BEHAVIORAL_SENTINEL_ENABLED="false"
 NODE_ENV="development"
 PORT="4000"
 API_URL="http://localhost:4000"
-FRONTEND_URL="http://localhost:3000"
+FRONTEND_URL="http://localhost:5173"
 LOG_LEVEL="debug"
 
 # Database
@@ -1104,17 +1126,15 @@ NEMOTRON_BASE_URL="https://integrate.api.nvidia.com/v1"
 NEMOTRON_MODEL="nvidia/llama-3.1-nemotron-ultra-253b-v1"
 NEMOTRON_TIMEOUT_MS="5000"
 
-# Nozomio Nia
-NIA_API_KEY="nia_xxx"
-NIA_BASE_URL="https://api.nozomio.com/v1"
-NIA_FRE_CORPUS_INDEX_ID="verdict-fre-rules-v1"
-
 # Databricks
-DATABRICKS_HOST="https://xxx.azuredatabricks.net"
+DATABRICKS_HOST="https://your-workspace.azuredatabricks.net"
 DATABRICKS_TOKEN="dapi_xxx"
 DATABRICKS_SQL_WAREHOUSE_ID="xxx"
 DATABRICKS_CATALOG="verdict"
 DATABRICKS_SCHEMA="sessions"
+DATABRICKS_VECTOR_ENDPOINT="verdict-vector-endpoint"
+DATABRICKS_VECTOR_INDEX="verdict.sessions.prior_statements_index"
+DATABRICKS_FRE_INDEX="verdict.sessions.fre_rules_index"
 
 # Resend (Email)
 RESEND_API_KEY="re_xxx"
@@ -1124,9 +1144,7 @@ RESEND_FROM_NAME="VERDICT Platform"
 # Sentry (backend)
 SENTRY_DSN="https://xxx@ooo.ingest.sentry.io/xxx"
 
-# Puppeteer (PDF generation)
-PUPPETEER_EXECUTABLE_PATH="/usr/bin/google-chrome-stable"  # production Docker
-# PUPPETEER_EXECUTABLE_PATH=""  # local: auto-detected
+# PDF generation uses reportlab + matplotlib (no extra env vars needed)
 
 # Rate Limiting
 RATE_LIMIT_OBJECTION_COPILOT_PER_MINUTE="120"
@@ -1297,6 +1315,12 @@ httpx==0.28.1
 python-dotenv==1.0.1
 nanoid==2.0.0
 boto3==1.35.0
+databricks-vectorsearch==0.64
+databricks-sdk==0.40.0
+lxml==5.3.0
+matplotlib==3.9.0
+reportlab==4.2.0
+numpy==2.0.0
 ```
 
 **Note:** `Backend: requirements.txt (pip)` | `Frontend: package-lock.json (npm)` — unchanged
@@ -1423,11 +1447,11 @@ IN TRANSIT:
 BEHAVIORAL SENTINEL SPECIFIC:
   - Raw video: NEVER transmitted or stored
   - AU vectors (numeric arrays): transmitted over WSS, stored encrypted in PostgreSQL
-  - Auto-deleted at 90-day retention limit alongside session data (Prisma scheduled job)
+  - Auto-deleted at 90-day retention limit alongside session data (Python APScheduler job in `app/jobs/cleanup.py`)
   - Attorney must explicitly enable per-case; witness must grant camera permission
 ```
 
-### Security Headers (Next.js middleware)
+### Security Headers (Vite SPA — via Vercel headers config)
 
 ```typescript
 // middleware.ts
@@ -1439,7 +1463,7 @@ const securityHeaders = {
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Content-Security-Policy': [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-eval' 'unsafe-inline'",  // required for Next.js
+    "script-src 'self' 'unsafe-eval' 'unsafe-inline'",  // required for Vite dev mode
     "connect-src 'self' wss://verdict.law https://api.elevenlabs.io https://integrate.api.nvidia.com",
     "media-src 'self' blob:",  // ElevenLabs audio blobs
     "worker-src 'self' blob:",  // MediaPipe WASM worker
@@ -1468,10 +1492,10 @@ const securityHeaders = {
 **Policy:** Apply within 60 days of release. Review changelog for deprecation notices.
 
 **Process:**
-1. Create feature branch: `chore/upgrade-fastify-5.2-to-5.3`
-2. Update `package.json` (exact version, no ranges)
-3. Run full test suite: unit + integration + E2E
-4. Manual smoke test of: live session (WebSocket), document upload, brief PDF generation, SAML login
+1. Create feature branch: `chore/upgrade-fastapi-0.115-to-0.116`
+2. Update `requirements.txt` (pin exact version)
+3. Run full test suite: unit + integration + E2E (`pytest`)
+4. Manual smoke test: live session (WebSocket), document upload, brief PDF generation, JWT auth
 5. Staging deploy → 48-hour observation window
 6. PR with changelog summary → 1 reviewer approval → merge
 
@@ -1488,7 +1512,7 @@ const securityHeaders = {
 - Team consensus required (2/4 team members must approve)
 
 **Critical major upgrades on horizon:**
-- **Next.js 16** (when released): Evaluate App Router breaking changes
+- **Vite 7** (when released): Evaluate build pipeline breaking changes
 - **SQLAlchemy 3** (when released): Migration tooling changes expected
 - **FastAPI 1.0** (when released): Check for breaking changes to dependency injection
 
@@ -1568,15 +1592,16 @@ Backend:   ✓ Python 3.12 + FastAPI 0.115.6 (Uvicorn 0.34.0)
 AI Layer:  ✓ Claude SDK (anthropic 0.40.0 Python)
            ✓ ElevenLabs (elevenlabs 1.13.5 Python)
            ✓ NVIDIA Nemotron (REST via httpx)
-           ✓ Nozomio Nia (REST via httpx)
-           ○ Databricks Delta Lake (analytics P1.2+)
+           ✓ Databricks Vector Search (fre_rules_index + prior_statements_index)
+           ✓ Databricks Foundation Model API (databricks-gte-large-en, 1024d)
+           ○ Databricks Delta Live Tables (analytics Phase 4)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Repo:      verdict-backend/          ← FastAPI (Python, port 4000)
            verdict-frontend/
              design-first-focus/    ← Vite SPA  (port 5173)
            docs/                    ← specs & guidelines
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Hosting:   Railway (backend) + Vercel/Lovable (frontend) [hackathon]
+Hosting:   Railway (primary) + Render (backup) [backend] | Vercel/Lovable [frontend] [hackathon]
 Testing:   Vitest 3.2.4 (frontend) | python -m py_compile app/**/*.py (backend)
 Logging:   Python logging + uvicorn access logs
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

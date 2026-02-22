@@ -1,0 +1,1135 @@
+VERDICT
+AI-Powered Deposition Coaching & Trial Preparation Platform
+Product Requirements Document v2.0 — Updated Feb 22, 2026
+Track: AI Automation — August.law Sponsor Track
+Team: VoiceFlow Intelligence | NYU Startup Week Buildathon 2026
+Build Window: 48 hours | Feb 20 (6 PM ET) → Feb 22 (6 PM ET)
+
+==============================================================
+TABLE OF CONTENTS
+==============================================================
+
+1. Product Vision & Problem Statement
+2. Target Users & B2B Context
+3. Team
+4. Non-Negotiables (P0 Features)
+5. P0.1 — Interrogator Agent (ElevenLabs Conversational AI)
+6. P0.2 — Objection Copilot (Databricks FRE Vector Search)
+7. P0.3 — Inconsistency Detector (Nemotron + Databricks)
+8. P0.4 — Case File Ingestion Pipeline
+9. P0.5 — Coaching Brief & Review Orchestrator
+10. P1 Features (Build If Ahead of Schedule)
+11. Complete Tech Stack
+12. Database Schema (11 Models)
+13. Application Flow & User Experience
+14. Authentication & Authorization
+15. Error Handling & Graceful Degradation
+16. Deployment & Infrastructure
+17. Success Criteria & Acceptance Tests
+18. Post-MVP Roadmap
+
+==============================================================
+1. PRODUCT VISION & PROBLEM STATEMENT
+==============================================================
+
+VERDICT is a B2B SaaS platform sold exclusively to law firms. It
+reduces witness deposition preparation time from 16 hours to 6
+hours per witness using four coordinated AI agents.
+
+THE PROBLEM:
+Law firms preparing witnesses for depositions spend 60%+ of prep
+time manually reviewing prior statements, anticipating opposing
+counsel tactics, and coaching witnesses on composure and
+consistency. There is no software that simulates the actual
+psychological and evidentiary pressure of a live deposition.
+
+THE SOLUTION:
+VERDICT creates AI-simulated deposition sessions in which a
+voice AI acts as opposing counsel ("Interrogator"), a real-time
+legal analysis engine flags objectionable questions ("Objection
+Copilot"), a contradiction scorer catches witness inconsistencies
+against their prior sworn statements ("Inconsistency Detector"),
+and a coaching AI synthesizes a structured brief at session end
+("Review Orchestrator").
+
+TAGLINE: AI-powered deposition coaching. From 16 hours to 6.
+
+PRICING MODEL: B2B SaaS. Sold to law firms, not individuals.
+No consumer signup flow. No public SEO landing pages inside the
+app (marketing site at trueverdict.com is separate).
+
+==============================================================
+2. TARGET USERS & B2B CONTEXT
+==============================================================
+
+PRIMARY USER: Litigation attorneys at midsize law firms.
+  - Partners and Associates running witness prep
+  - Managing 3-15 witnesses per active case
+  - Billable hours consumed by manual prep = $800-$1,500/hr
+
+SECONDARY USER: Witnesses (defendants, plaintiffs, experts)
+  - Access via time-limited token link (no firm account needed)
+  - Simple voice-only interface with one button
+
+FIRM ADMIN: IT Director / Managing Partner
+  - Provisions seats, configures SSO, manages data retention
+
+NOT a consumer product. No B2C users. No individual signups.
+Enterprise-only identity: firm SSO (SAML 2.0 / Okta) or
+email+password provisioned by firm admin.
+
+==============================================================
+3. TEAM
+==============================================================
+
+| Member   | Primary Role              | Owns                                    |
+|----------|---------------------------|-----------------------------------------|
+| Aman     | AI Orchestration Lead     | Claude SDK, Interrogator Agent,         |
+|          |                           | Objection Copilot, Databricks setup,    |
+|          |                           | build_system_prompt(), voiceagents      |
+| Nikhil   | Backend + Data Pipelines  | FastAPI, PostgreSQL (SQLAlchemy),        |
+|          |                           | Redis, Databricks Delta Lake schema     |
+| Dhanush  | Frontend + UI/UX          | Vite+React pages, shadcn/ui components, |
+|          |                           | Recharts radar, Framer Motion           |
+| [M4]     | Full-Stack / Integration  | Auth (JWT), WebSocket plumbing,         |
+|          |                           | ElevenLabs Conversational AI, deploy    |
+
+==============================================================
+4. NON-NEGOTIABLES (P0 FEATURES)
+==============================================================
+
+All five P0 features MUST be demo-ready at 6 PM Feb 22, 2026.
+
+P0.1  Interrogator Agent        ElevenLabs voice questions (Adam voice)
+P0.2  Objection Copilot         FRE classification in <= 1.5s
+P0.3  Inconsistency Detector    Nemotron scoring in <= 4s
+P0.4  Case File Ingestion       PDF/DOCX -> S3 -> Databricks Vector Search
+P0.5  Coaching Brief            Review Orchestrator + ElevenLabs narration
+
+CUT IF BEHIND SCHEDULE (in order):
+  1. P1.4 Behavioral Sentinel
+  2. P1.2 Weakness Map full interactivity
+  3. P1.1 Multi-session progress tracking
+  4. PDF export
+  5. SAML SSO (keep email/password only)
+
+SECONDARY PRIZE TARGETS:
+  Primary:   ElevenLabs Voice Prize
+  Secondary: Databricks Prize, Anthropic Claude Prize
+
+==============================================================
+5. P0.1 — INTERROGATOR AGENT (ElevenLabs Conversational AI)
+==============================================================
+
+PURPOSE:
+AI simulates opposing counsel, asking legally-accurate deposition
+questions in a natural voice. The Interrogator adapts in real
+time based on witness hesitation, detected inconsistencies, and
+prior session performance.
+
+VOICE PROFILE:
+  Voice: "Adam" (ElevenLabs) — authoritative, measured cadence
+  Model: eleven_turbo_v2_5
+  Latency target: < 2s from question generation to audio start
+
+ARCHITECTURE:
+  Session start:
+    build_system_prompt(case)
+      -> case type, witness role, focus areas, extracted facts,
+         prior statements, exhibit list, aggression level, and
+         5-dimension scoring rubric (see below)
+      -> behavioral audio tags injected into prompt:
+         [pause], [sigh], [nervous laugh], [throat_clear]
+    get_conversation_token(agent_id)
+      -> ElevenLabs signed WebSocket URL for this session
+    build_conversation_override(system_prompt, first_message)
+      -> Per-session config override (prevents race conditions
+         from mutating shared agent configuration)
+
+  Question generation (per turn):
+    search_prior_statements(case_id, prior_answer, top_k=3)
+      -> Databricks prior_statements_index (filtered by case_id)
+      -> Retrieved prior statements injected into question prompt
+    claude_stream(system_prompt, user_message, max_tokens=200)
+      -> Streaming question chunks via SSE
+    text_to_speech(question_text, INTERROGATOR_VOICE_ID)
+      -> ElevenLabs TTS -> audio bytes -> base64 to frontend
+
+ADAPTIVE BEHAVIOR:
+  Standard:       Open -> specific -> challenge (per topic arc)
+  Hesitation:     IF witness silence > 4s
+                  THEN sharper follow-up ("Let me ask that
+                  differently, Doctor...")
+  Sentinel:       IF Fear/Contempt detected >= 0.8s (P1.4)
+                  THEN selects high-pressure follow-up for topic
+  Inconsistency:  IF Detector fires on current topic
+                  THEN Interrogator extends questioning before
+                  moving to next topic
+  Session 2+:     Prior weak areas (axes < 60) pre-briefed;
+                  persisting inconsistency flags injected;
+                  prior question log prevents exact repetition
+
+AGGRESSION LEVELS:
+  STANDARD:     Ask methodically. Allow witness to elaborate.
+  ELEVATED:     Press on contradictions. Use controlled silence.
+  HIGH_STAKES:  Maximum pressure. Expose inconsistencies directly.
+
+FOCUS AREAS (multi-select):
+  - Timeline & Chronology
+  - Financial Details
+  - Communications & Correspondence
+  - Relationships & Key Parties
+  - Actions Taken
+  - Prior Sworn Statements
+
+5-DIMENSION SCORING RUBRIC (built into system prompt):
+  1. Composure (Calm under pressure)
+     High: Absorbs aggressive questioning without vocal changes
+     Penalty: [sigh], [nervous], defensiveness on confrontation
+  2. Tactical Discipline (Handling Silence & Traps)
+     High: Short answers; silent when Interrogator uses silence
+     Penalty: Over-explaining, filling dead air, volunteering info
+  3. Professionalism (Courtroom demeanor)
+     High: Respectful, neutral, objective
+     Penalty: [laugh], [scoff], sarcasm, arguing
+  4. Directness (Evasion tracking)
+     High: Concise answers ("Yes", "No", "I do not recall")
+     Penalty: "I don't recall" > twice on same topic, forcing
+     Interrogator to repeat
+  5. Consistency (Endurance over time)
+     High: Same narrative and tone throughout
+     Penalty: Contradicting prior statement, tone shift on focus areas
+
+SSE ENDPOINT: POST /api/v1/sessions/{session_id}/agents/question
+  Request body: { questionNumber, currentTopic, priorAnswer,
+                  hesitationDetected, recentInconsistencyFlag }
+  SSE events: QUESTION_START -> QUESTION_CHUNK (streaming)
+           -> QUESTION_AUDIO (base64) -> QUESTION_END
+  Latency: first chunk < 2s; full question < 4s
+
+==============================================================
+6. P0.2 — OBJECTION COPILOT (Databricks FRE Vector Search)
+==============================================================
+
+PURPOSE:
+Analyzes each Interrogator question for objectionable content
+under the Federal Rules of Evidence (FRE). Fires alert to
+attorney's live rail within 1.5s of question delivery.
+
+DATABRICKS VECTOR SEARCH:
+  Index: verdict.sessions.fre_rules_index
+  Endpoint: verdict-vector-endpoint (STANDARD, Direct Access)
+  Embedding: databricks-gte-large-en (1024 dimensions)
+  Source: Official uscode.house.gov USLM XML (Rules 101-1103,
+          all 11 Articles), current through Public Law 119-73
+          (January 2026)
+  Two chunk types per rule: rule text + Advisory Committee Notes
+  Filter: is_deposition_relevant = true at query time
+  One-time setup: scripts/setup_databricks.py (creates endpoint
+                  + both indexes)
+  One-time ingest: scripts/fre_xml_ingestion.py (parses USLM
+                   XML, generates 1024d embeddings, upserts)
+
+FLOW (fires in parallel with question delivery, <= 1.5s):
+  search_fre_rules(question_text, top_k=3, deposition_only=True)
+    -> Databricks fre_rules_index
+    -> Top 3 FRE rules + Advisory Committee Notes
+  claude_chat(OBJECTION_SYSTEM, prompt_with_fre_context)
+    -> Structured JSON: { isObjectionable, freRule, category,
+                          explanation, confidence }
+  IF isObjectionable: fire alert in attorney rail
+  IF not: silent pass (no UI noise)
+
+OBJECTION CATEGORIES:
+  LEADING            FRE 611(c)   Suggests a specific answer
+  HEARSAY            FRE 801      Out-of-court statement for truth
+  COMPOUND           (none)       Multiple questions embedded
+  ASSUMES_FACTS      (none)       Presupposes unestablished facts
+  SPECULATION        (none)       Asks witness to guess
+
+ATTORNEY RAIL ALERT:
+  Card: category badge + FRE rule + plain-English explanation
+  Example: "LEADING — FRE 611(c) | Q7 | 00:14:22
+            Question suggests a specific answer. Witness should
+            pause before answering."
+  Actions: [Mark Coached] [Dismiss]
+  Optional soft audio chime (attorney-configurable)
+
+REST ENDPOINT: POST /api/v1/sessions/{session_id}/agents/objection
+  Request body: { questionNumber, questionText, questionTimestamp }
+  Response: { isObjectionable, freRule, category, explanation,
+              confidence, processingMs }
+  processingMs MUST be <= 1500 to meet P0 acceptance criteria
+
+FALLBACK (Databricks unavailable):
+  Rail badge: "FRE corpus offline — Objection Copilot
+               running Claude-only"
+  Claude handles FRE classification from its training knowledge
+  Session continues uninterrupted
+
+==============================================================
+7. P0.3 — INCONSISTENCY DETECTOR (Nemotron + Databricks)
+==============================================================
+
+PURPOSE:
+After each witness answer, retrieves semantically similar prior
+sworn statements from Databricks and sends them with the current
+answer to Nemotron for contradiction scoring. Fires live alert
+at >= 0.75 confidence within 4s.
+
+DATABRICKS VECTOR SEARCH:
+  Index: verdict.sessions.prior_statements_index
+  Endpoint: verdict-vector-endpoint (same STANDARD endpoint)
+  Embedding: databricks-gte-large-en (1024 dimensions)
+  Filter: case_id = <case_id>  (firm-level isolation guaranteed
+          by ingestion pipeline calling upsert_prior_statement)
+  Schema: { id, case_id, content, page, line, doc_type,
+            witness_name, document_id, embedding }
+
+NEMOTRON API:
+  Model: nvidia/llama-3.1-nemotron-ultra-253b-v1
+  Base URL: https://integrate.api.nvidia.com/v1
+  Client: httpx (no official Python SDK)
+  Budget: $40+ API credits from hackathon organizers
+  Timeout: 5 seconds (see fallback section)
+  Output: { contradiction_confidence: float 0-1,
+            best_match_index: int, reasoning: str }
+
+FLOW (fires <= 4s after witness answer):
+  search_prior_statements(case_id, answer_text, top_k=5)
+    -> Databricks prior_statements_index (filtered by case_id)
+    -> Top 5 semantically similar prior sworn statements
+  score_contradiction(answer, prior_statements, case_context)
+    -> Nemotron API -> contradiction_confidence (0-1)
+    -> best_match_index -> identifies the most contradicted stmt
+
+CONFIDENCE ROUTING:
+  >= 0.75  -> LIVE ALERT fired in attorney rail (<= 4s)
+               impeachmentRisk = "CONTRADICTION"
+               IF Behavioral Sentinel active AND Fear/Contempt
+               for >= 0.8s during same answer:
+                 impeachmentRisk = "HIGH IMPEACHMENT RISK"
+                 confidence += 0.05 (behavioral corroboration)
+  0.50-0.74 -> SECONDARY REVIEW QUEUE
+               Surfaced in coaching brief only, NOT live rail
+               Label: "Possible Inconsistencies — Attorney Review"
+  < 0.50   -> DISCARDED silently
+
+LIVE RAIL ALERT FORMAT:
+  Card: "CONTRADICTION | Q8 | 00:15:03 | Confidence: 0.91
+         Prior: 'The dosage was exactly $217.' — p.47, line 12
+         Now:   'approximately $200 range'"
+  Actions: [Confirm] [Reject] [Annotate]
+
+FALLBACK (Nemotron > 5s or error):
+  Claude-only scoring with raised threshold: 0.75 -> 0.85
+  Rail badge: "Scoring: Claude-only mode (Nemotron unavailable)"
+  Session continues uninterrupted
+
+REST ENDPOINT: POST /api/v1/sessions/{session_id}/agents/inconsistency
+  Request body: { questionText, answerText }
+  Response: { flagFound, isLiveFired, contradictionConfidence,
+              priorQuote, priorDocumentPage, priorDocumentLine,
+              impeachmentRisk }
+
+==============================================================
+8. P0.4 — CASE FILE INGESTION PIPELINE
+==============================================================
+
+PURPOSE:
+Attorneys upload case documents (prior depositions, medical
+records, contracts, exhibits). The pipeline extracts text,
+runs Claude fact extraction, and upserts statements into
+Databricks Vector Search so the Inconsistency Detector has
+per-case prior sworn statements to query at session time.
+
+SUPPORTED FORMATS: PDF (text-searchable), DOCX, TXT
+MAX SIZE: 200MB per file | 2GB per case
+DUPLICATE DETECTION: SHA-256 file hash checked on upload
+
+PIPELINE STAGES:
+  1. Browser -> S3 presigned PUT URL (direct upload, bypasses API)
+     boto3 generate_presigned_upload() in app/services/s3.py
+  2. Backend confirms upload; updates Document status: UPLOADING
+  3. Text extraction:
+     PDF: pdfplumber (catches image-only PDFs early, error state)
+     DOCX: python-docx (paragraphs + table cells)
+     Status: INDEXING
+  4. Claude fact extraction (claude-sonnet-4-20250514):
+     Extracts: parties, key dates, disputed facts, priorStatements
+     Result stored in Document.extracted_facts (JSONB column)
+  5. Databricks embedding + upsert:
+     upsert_prior_statement(case_id, document_id, content,
+                            page, line, doc_type, witness_name)
+     -> databricks-gte-large-en (1024d) embedding generated
+     -> Upserted to verdict.sessions.prior_statements_index
+     Document.databricks_doc_id stored post-indexing
+  6. Status: READY
+     Attorney notified via in-app notification + email
+
+INGESTION STATUS PROGRESSION:
+  PENDING -> UPLOADING -> INDEXING -> READY (or FAILED)
+
+FACT REVIEW UI (/cases/:caseId/documents/facts):
+  Four sections:
+    - Parties (table: name, role, [Edit] inline)
+    - Key Dates (table: date, event, source doc + page, [Edit])
+    - Disputed Facts (highlighted list, [Edit] per item)
+    - Prior Sworn Statements (searchable, page/line refs)
+  Attorney confirms each section ([Mark as Confirmed] checkbox)
+  CTA "CASE IS READY — ADD WITNESS" unlocks when all confirmed
+
+ERROR STATES:
+  File too large:    "File is 312MB — max is 200MB."
+  Image-only PDF:    "No text content found. PDF may be
+                      image-only. Use text-searchable PDFs."
+  Ingestion timeout: "> 5 min — [Proceed with partial index]
+                      [Keep waiting]"
+  Duplicate upload:  "This document looks identical to [name].
+                      Add anyway?"
+
+==============================================================
+9. P0.5 — COACHING BRIEF & REVIEW ORCHESTRATOR
+==============================================================
+
+PURPOSE:
+At session end, generates a comprehensive structured coaching
+brief in <= 3 minutes. The brief includes a session score,
+5-axis Weakness Map, inconsistency log, objection log, and
+top 3 coaching recommendations. An ElevenLabs Coach voice
+narrates the key moments.
+
+BRIEF GENERATION PIPELINE:
+  1. generate_rule_based_report(transcript, events, case)
+     -> Rule-based heuristic scorer in app/services/report_generator.py
+     -> Aggression scoring via app/services/aggression.py
+        (score_witness(), score_vulnerability())
+  2. claude_chat(ORCHESTRATOR_SYSTEM, session_summary_prompt)
+     -> Model: claude-sonnet-4-20250514, max_tokens=1500
+     -> Returns JSON: { sessionScore, consistencyRate,
+                        topRecommendations, narrativeText,
+                        weaknessMapScores { composure,
+                        tactical_discipline, professionalism,
+                        directness, consistency },
+                        confirmedFlags, objectionCount,
+                        composureAlerts }
+  3. ElevenLabs Coach narration:
+     Voice: "Rachel" — warm, professional, encouraging
+     text_to_speech(narration, ELEVENLABS_COACH_VOICE_ID)
+     Narrates: session summary + each high-risk moment + top 3 recs
+     Auto-plays on brief load; [Pause] [Skip] [Replay] controls
+  4. PDF generation (server-side, headless):
+     matplotlib -> 5-axis radar chart PNG
+     reportlab -> structured PDF with embedded radar chart
+     PDF stored in S3; pdfS3Key saved to Brief record
+  5. Brief saved to PostgreSQL -> brief_id returned -> email sent
+
+BRIEF SECTIONS:
+  Score Summary Card:
+    Session Score: 0-100
+    Color: red < 50, amber 50-74, green >= 75
+    Delta vs. Session 1 (multi-session only): Δ +17
+    Consistency Rate: float (e.g., 0.73 = 73%)
+    Alert totals: Objections | Confirmed Inconsistencies | Composure
+
+  Inconsistencies Section:
+    Each confirmed flag (expanded by default):
+      - Exchange timestamp + [Play clip] (ElevenLabs audio)
+      - Current answer with problematic phrase highlighted
+      - Prior statement: exact quote + p.XX, line YY
+      - Contradiction confidence (e.g., 0.91)
+      - Impeachment risk badge: HIGH / CONTRADICTION
+      - Coach note
+    Secondary queue (0.50-0.74): collapsed, attorney review label
+
+  Objections Section:
+    Each event: timestamp, question text, FRE rule, category
+    Training note for each event
+    Objection rate: "4 objectionable questions — witness paused on 1"
+
+  Weakness Map (P1.2 — Radar Chart):
+    5 axes: Composure, Tactical Discipline, Professionalism,
+            Directness, Consistency
+    Each axis: 0-100 (rule-based heuristic + Claude coaching brief)
+    Recharts RadarChart in frontend
+    Click axis -> drill into lowest-scoring exchanges
+
+  Top 3 Coaching Recommendations:
+    "1. Address the $200 vs $217 dosage discrepancy — prepare
+        a precise explanation."
+    "2. Practice a 3-second pause before answering any leading
+        question."
+    "3. Focus next session on Financial Details (weakest: 34/100)."
+
+SHARE TOKEN:
+  Attorney can share brief with witness via 7-day expiring link
+  shareToken stored in Brief record (nanoid, 24 chars)
+  GET /api/v1/briefs/share/{share_token} — no auth required
+  Witness sees: score, top 3 recommendations ONLY
+  Witness DOES NOT see: raw confidence scores, full alert log,
+                          attorney annotations
+
+PDF EXPORT: [Download PDF] -> presigned S3 GET URL
+ANNOTATION: [Annotate Brief] -> inline comment mode for attorney
+NEXT SESSION: [Schedule Next Session] -> /session/new for witness
+
+REST ENDPOINTS:
+  GET /api/v1/briefs/{brief_id}       (attorney JWT required)
+  GET /api/v1/briefs/share/{token}    (no auth, 7-day TTL)
+
+==============================================================
+10. P1 FEATURES (BUILD IF AHEAD OF SCHEDULE)
+==============================================================
+
+P1.1 — MULTI-SESSION WITNESS PROFILE
+  Witness Profile (/cases/:caseId/witnesses/:witnessId):
+    Score trend chart: Session 1 (44) -> Session 2 (61) -> ...
+    Improvement delta: "+35 pts from Session 1"
+    Plateau alert: "Score unchanged over 3 sessions"
+    Weakness Evolution: radar chart Session 1 vs. Latest
+    Inconsistency Log: Resolved / Persisting / New status
+    Session History: list with scores and [View Brief] links
+
+  Session 2+ adaptive behavior:
+    Interrogator receives prior_weak_areas (axes < 60)
+    Persisting flags auto-injected into Interrogator pre-briefing
+    Aggression: recommend +1 level if prior score < 65
+    Brief: auto-includes delta vs. Session 1
+
+  Plateau detection (3+ sessions, no improvement):
+    Dashboard banner, profile banner, special brief section
+    Email alert to owning attorney
+
+P1.2 — WEAKNESS MAP RADAR (RECHARTS)
+  5-axis radar chart rendered by Recharts RadarChart
+  Session 1 vs. Latest side-by-side (Witness Profile page)
+  Click axis -> lowest-scoring exchanges for that dimension
+  Animated: axes animate outward from center on reveal
+
+P1.3 — ARGUMENT STRENGTH SCORING
+  Uses Nemotron to score the quality of opposing counsel arguments
+  Disabled if Nemotron unavailable: noted in brief
+  POST-hackathon refinement
+
+P1.4 — BEHAVIORAL SENTINEL (EXPERIMENTAL)
+  Client-side only: MediaPipe Tasks Vision (@mediapipe/tasks-vision
+  v0.10.20) runs in WebAssembly in witness browser
+  Model: face_landmarker.task (430 landmark points, >= 15 fps)
+  FACS Action Units computed client-side:
+    AU4  = brow furrow
+    AU6  = cheek raise
+    AU12 = lip corner pull
+    AU20 = lip stretch
+    AU45 = blink
+  ONLY AU numeric vectors transmitted to backend (never raw video
+  or video frames — privacy by design)
+  Nemotron processes: FACS AU vectors + text transcript
+    simultaneously for multimodal reasoning
+  Confidence boost: if Fear/Contempt during inconsistency answer
+    -> impeachmentRisk = "HIGH IMPEACHMENT RISK"
+    -> confidence += 0.05
+
+  ACTIVATION GATE (firm-level):
+    firm.behavioral_sentinel_enabled = false:
+      Feature hidden entirely, camera permission NEVER requested
+    firm.behavioral_sentinel_enabled = true:
+      Toggle visible in session config — OFF by default
+      Attorney must explicitly enable per session
+    session.sentinel_opted_in = true:
+      Witness consent screen: "VERDICT may analyze facial
+      expressions to provide composure coaching. No video is
+      recorded or transmitted. Analysis runs on your device only."
+    Witness denies camera permission:
+      Silent degradation; session continues without facial analysis
+      Attorney notified; witness sees no indication it was attempted
+
+  RAIL ALERT (if active):
+    "COMPOSURE ALERT | Q8 | 00:15:01 | Experimental
+     Fear micro-expression (AU4+AU20) 1.2s — gaze aversion
+     Inconsistency flag upgraded: HIGH IMPEACHMENT RISK"
+    Actions: [Noted] [Disable for session]
+
+==============================================================
+11. COMPLETE TECH STACK
+==============================================================
+
+FRONTEND:
+  Framework:     Vite 5.4.19 + React 18.3.1 (SPA)
+  Language:      TypeScript 5.8.3 (strict mode)
+  Styling:       Tailwind CSS 3.4.17 (JIT)
+  UI Components: shadcn/ui (Radix UI primitives) -> WCAG 2.1 AA
+  Routing:       react-router-dom 6.30.1 (ProtectedRoute)
+  Forms:         React Hook Form 7.61.1 + Zod 3.25.x +
+                 @hookform/resolvers 3.10.0
+  HTTP:          Axios 1.13.x (JWT interceptors + cancellation)
+  Server State:  TanStack Query (React Query) 5.83.0
+                 (stale-while-revalidate, no redundant fetches)
+  Charts:        Recharts 2.15.4 (Weakness Map radar, SVG)
+  Toasts:        Sonner 1.7.4
+  Dates:         date-fns 3.6.0
+  Deployment:    Lovable (hackathon) / Vercel (production)
+
+  PLANNED (not yet installed — add when implementing features):
+    socket.io-client   Live session bi-directional events
+    framer-motion      Alert rail animations, score count-up
+    wavesurfer.js      ElevenLabs audio waveform visualization
+    @mediapipe/tasks-vision  Behavioral Sentinel FACS (P1.4)
+    @react-pdf/renderer  Client-side brief PDF preview
+    zustand            Live session global state store
+
+BACKEND:
+  Runtime:       Python 3.12
+  Framework:     FastAPI 0.115.6 (native async, OpenAPI docs,
+                 Pydantic v2 validation, StreamingResponse SSE)
+  ASGI Server:   Uvicorn 0.34.0 with uvloop
+  Database:      PostgreSQL 17.2 (JSONB, row-level security,
+                 pg_trgm full-text search)
+  ORM:           SQLAlchemy 2.0.36 + asyncpg driver
+  Migrations:    Alembic 1.14.0
+  Cache/Pub-Sub: Redis 7.4.1 via redis-py 5.2.1 (async)
+                 Upstash Redis (hackathon) / ElastiCache (prod)
+  Auth:          JWT via python-jose[cryptography] 3.3.0
+                 Passwords: passlib[bcrypt] 1.7.4 (cost=12)
+                 Tokens: nanoid 2.0.0 (24-char, 144-bit entropy)
+  File Storage:  AWS S3 (boto3 1.35.0)
+                 Presigned PUT for upload, GET for download
+                 Lifecycle: auto-delete after 90 days
+  Text Extract:  pdfplumber 0.11.x (PDF), python-docx 1.1.x
+  PDF Generate:  reportlab 4.2.0 + matplotlib 3.9.0
+  Email:         Resend 4.1.2 + react-email 3.0.7
+  Validation:    Pydantic v2 (2.10.4) + pydantic-settings 2.7.0
+  Rate Limiting: slowapi (Redis-backed, route-level)
+  Deployment:    Railway (primary) + Render (backup)
+
+AI & EXTERNAL SERVICES:
+  Anthropic Claude:
+    SDK: anthropic 0.40.0 (Python)
+    Model: claude-sonnet-4-20250514
+    Roles: Interrogator question generation (streaming),
+           Objection Copilot FRE classification,
+           Inconsistency Detector (fallback),
+           Review Orchestrator coaching brief synthesis
+
+  ElevenLabs:
+    SDK: elevenlabs 1.13.5 (Python)
+    TTS Model: eleven_turbo_v2_5
+    STT Model: scribe_v1
+    Voices:
+      Interrogator: "Adam" (authoritative, measured cadence)
+      Coach:        "Rachel" (warm, professional, encouraging)
+    Conversational AI: get_conversation_token(agent_id)
+      -> Signed WebSocket URL for bidirectional real-time session
+    Session override: build_conversation_override(system_prompt,
+      first_message) -> per-session config (no shared mutation)
+    Latency target: < 2s from generation to audio start
+
+  NVIDIA Nemotron:
+    Model: nvidia/llama-3.1-nemotron-ultra-253b-v1
+    Base URL: https://integrate.api.nvidia.com/v1
+    Client: httpx 0.28.1 (no official Python SDK)
+    Budget: $40+ API credits from hackathon organizers
+    Timeout: 5s (=> fallback to Claude if exceeded)
+    Role: Contradiction confidence scoring, Argument Strength
+          Scoring (P1.3), Behavioral Sentinel multimodal
+          reasoning (P1.4) — fed FACS AU vectors + transcript
+
+  Databricks:
+    Packages: databricks-vectorsearch 0.64 +
+              databricks-sdk 0.40.0
+    Vector Search Endpoint: verdict-vector-endpoint (STANDARD)
+    Index 1 — FRE Rules:
+      verdict.sessions.fre_rules_index
+      Source: uscode.house.gov USLM XML, Rules 101-1103
+      Queried by: Objection Copilot
+      Filter: is_deposition_relevant = true
+    Index 2 — Prior Statements:
+      verdict.sessions.prior_statements_index
+      Source: uploaded case documents (ingestion pipeline)
+      Queried by: Inconsistency Detector (filter: case_id)
+    Embeddings: databricks-gte-large-en (1024 dimensions)
+                Databricks Foundation Model API
+    Setup scripts:
+      scripts/setup_databricks.py  (endpoint + both indexes)
+      scripts/fre_xml_ingestion.py (parse + embed + upsert FRE)
+    Future (Phase 4):
+      Delta Lake: verdict.sessions.session_events table
+      Delta Live Tables: real-time Witness Composure Timeline
+      Databricks SQL: Weakness Map score queries
+      MLflow (P2.3): Case outcome analytics
+
+  MediaPipe (P1.4 — Behavioral Sentinel, client-side only):
+    Package: @mediapipe/tasks-vision 0.10.20 (WebAssembly)
+    Model: face_landmarker.task (430 landmarks, >= 15 fps)
+
+  AWS S3:
+    Bucket: verdict-documents-hackathon (us-east-1)
+    Presigned PUT: direct browser upload (bypasses API server)
+    Presigned GET: secure document download
+    Lifecycle: auto-delete after 90 days
+
+==============================================================
+12. DATABASE SCHEMA (11 MODELS)
+==============================================================
+
+All models live in verdict-backend/app/models/
+
+1. Firm
+   id, name, sso_metadata_url, retention_days (default 90),
+   sentinel_enabled (default false), seats, created_at, updated_at
+   Relations: users[], cases[]
+
+2. User
+   id, firm_id (FK), email (unique), name, role (enum),
+   password_hash (null if SSO-only), is_active,
+   created_at, updated_at
+   Role enum: PARTNER | ASSOCIATE | PARALEGAL | ADMIN
+
+3. Case
+   id, firm_id (FK), owner_id (FK user), name, case_type (enum),
+   case_type_custom, opposing_firm, deposition_date,
+   extracted_facts (Text), prior_statements (Text),
+   exhibit_list (Text), is_archived (default false),
+   created_at, updated_at
+   CaseType enum: MEDICAL_MALPRACTICE | EMPLOYMENT_DISCRIMINATION
+                  | COMMERCIAL_DISPUTE | CONTRACT_BREACH | OTHER
+
+4. Document
+   id, case_id (FK), firm_id, filename, s3_key, file_size,
+   mime_type, doc_type (enum), ingestion_status (enum),
+   databricks_doc_id, extracted_facts (JSONB), page_count,
+   ingestion_error, created_at, updated_at
+   DocType enum: PRIOR_DEPOSITION | MEDICAL_RECORDS
+                 | FINANCIAL_RECORDS | CORRESPONDENCE | EXHIBIT | OTHER
+   IngestionStatus: PENDING | UPLOADING | INDEXING | READY | FAILED
+
+5. Witness
+   id, case_id (FK), firm_id, name, email, role (enum),
+   notes, linked_doc_ids (Text[]), created_at, updated_at
+   WitnessRole: DEFENDANT | PLAINTIFF | EXPERT
+                | CORPORATE_REPRESENTATIVE | OTHER
+
+6. Session
+   id, case_id (FK), witness_id (FK), firm_id, session_number,
+   status (enum), duration_minutes, focus_areas (Text[]),
+   aggression (enum), objection_copilot (default true),
+   behavioral_sentinel (default false), witness_token (unique),
+   session_score, consistency_rate, transcript_raw (Text),
+   question_count, prior_weak_areas (Text[]), started_at,
+   ended_at, created_at, updated_at
+   SessionStatus: CONFIGURED | LOBBY | ACTIVE | PAUSED
+                  | COMPLETE | FAILED
+   FocusArea: TIMELINE_CHRONOLOGY | FINANCIAL_DETAILS
+              | COMMUNICATIONS | RELATIONSHIPS | ACTIONS_TAKEN
+              | PRIOR_STATEMENTS
+   AggressionLevel: STANDARD | ELEVATED | HIGH_STAKES
+
+7. Alert
+   id, session_id (FK), firm_id, alert_type (enum),
+   question_id, question_timestamp, question_text, answer_text,
+   fre_rule, prior_quote, prior_document_page, prior_document_line,
+   contradiction_conf, behavioral_au_vectors (JSONB),
+   impeachment_risk (enum), attorney_decision (enum),
+   attorney_note, confirmed_at, created_at
+   AlertType: OBJECTION_COPILOT | INCONSISTENCY_DETECTED
+              | INCONSISTENCY_SECONDARY | COMPOSURE_ALERT
+   ImpRisk: STANDARD | HIGH
+   AttyDecision: CONFIRMED | REJECTED | ANNOTATED
+
+8. Brief
+   id, session_id (FK unique), firm_id, witness_id,
+   generation_status, generation_started_at, generation_completed_at,
+   generation_error, session_score, consistency_rate,
+   delta_vs_baseline, confirmed_flags, objection_count,
+   composure_alerts, top_recommendations (Text[]), narrative_text,
+   weakness_map_scores (JSONB), elevenlabs_audio_manifest (JSONB),
+   share_token (unique), share_token_issued_at,
+   share_token_expires_at, pdf_s3_key, pdf_generated_at,
+   created_at, updated_at
+
+9. RefreshToken
+   id, user_id (FK), token (unique), expires_at, revoked (bool),
+   created_at
+
+10. SessionEvent
+    id, session_id (FK), firm_id, event_type, event_data (JSONB),
+    created_at
+
+11. AttorneyAnnotation
+    id, brief_id (FK), user_id (FK), content, target_section,
+    created_at, updated_at
+
+MIGRATION STRATEGY:
+  Tool: Alembic (alembic upgrade head runs before server start)
+  Naming: YYYYMMDD_HHMMSS_description
+  Hackathon DB: Supabase PostgreSQL
+  Connection pool: pool_size=10, max_overflow=5
+
+SEED DATA:
+  scripts/seed.py: 1 firm, 3 users (partner + associate + admin),
+                   2 demo cases
+  scripts/seed_cases.py: 5 demo cases from
+                         verdict-backend/data/verdict_cases.json
+
+==============================================================
+13. APPLICATION FLOW & USER EXPERIENCE
+==============================================================
+
+ENTRY POINTS:
+  verdict.law/                  B2B Landing (public)
+  verdict.law/login             Login (public)
+  verdict.law/onboarding        Firm Setup (public + firm token)
+  verdict.law/dashboard         Attorney Dashboard (auth required)
+  verdict.law/cases             Case List (auth)
+  verdict.law/cases/:id         Case Detail (auth, case owner)
+  verdict.law/cases/:id/session/:sid/live  Live Session (auth)
+  verdict.law/witness/session/:id  Witness View (token, no login)
+  verdict.law/briefs/:id        Coaching Brief (auth or share token)
+  verdict.law/admin             Firm Admin Panel (auth + admin role)
+
+CORE USER FLOWS:
+
+  Flow 1 — Firm Onboarding (one-time, admin):
+    Step 1: Activation email -> /onboarding?token= (72hr TTL)
+    Step 2: Firm Configuration (Firm Name, SSO or email/password)
+    Step 3: Seat Provisioning (CSV upload or manual: Name+Email+Role)
+    Step 4: Security Settings (retention, Behavioral Sentinel toggle)
+    -> Firm record created in DB; attorneys can create cases
+
+  Flow 2 — Case Creation & Document Ingestion:
+    New Case form: name, type, opposing firm, deposition date
+    Upload documents: PDF/DOCX/TXT via drag-and-drop (or [Browse])
+    Per-document ingestion progress cards (PENDING->UPLOADING->INDEXING->READY)
+    Fact Review: confirm parties, dates, disputed facts, prior statements
+    "CASE IS READY — ADD WITNESS" CTA unlocks on confirmation
+
+  Flow 3 — Session Configuration:
+    Add witness: name, role, email, link to uploaded docs, notes
+    Configure session: duration, focus areas (chips), aggression
+    level, Objection Copilot ON/OFF, Behavioral Sentinel ON/OFF
+    [Generate Practice Link] -> creates 72hr witness token URL
+    [Start Session as Attorney] -> attorney solo mode
+
+  Flow 4 — Live Deposition Session:
+    Session Lobby (/session/:id/lobby):
+      Witness connection status, feature toggle confirmation
+      [Begin Session] (active when witness connected or solo)
+
+    Active Session — Attorney View (/session/:id/live):
+      THREE-PANEL LAYOUT (desktop, >= 1024px):
+        LEFT   (220px):  Timer, current topic, Q# of ~18, controls
+        CENTER (flex):   Auto-scrolling transcript (speaker-tagged)
+        RIGHT  (320px):  Live Alert Rail (Objection + Inconsistency
+                         + Behavioral Sentinel lanes)
+      Bottom bar: [Add Note] (timestamped annotation)
+      Controls: [Pause] [Skip Topic] [End Session Early]
+
+    Active Session — Witness View (/witness/session/:id):
+      Token-gated, no firm login required
+      Minimal UI: Opposing Counsel avatar + ElevenLabs waveform
+      "Your Turn" mic indicator after question ends
+      Session timer
+      [Need a Moment] button (pauses, notifies attorney)
+      NOT shown: alerts, transcript, score, attorney annotations
+
+    Session Pause (either party):
+      Timer: blue -> amber
+      Transcript: semi-transparent "Session paused" overlay
+      Alert rail: grey overlay "Monitoring paused"
+
+  Flow 5 — Coaching Brief Review:
+    Post-session generation progress: 4 animated steps (~2-3 min)
+    Brief Viewer (/briefs/:briefId):
+      Score Summary Card + Delta vs Session 1
+      ElevenLabs Coach auto-plays narration (Rachel voice)
+      Inconsistency Section + Objections Section
+      Weakness Map radar chart (Recharts)
+      Top 3 Recommendations
+      Actions: [Download PDF] [Share with Witness] [Annotate] [Schedule Next Session]
+
+  Flow 6 — Multi-Session Progress (P1.1):
+    Witness Profile (/cases/:id/witnesses/:witnessId):
+      Score trend chart across all sessions
+      Weakness Evolution: radar Session 1 vs. Latest
+      Inconsistency Log: Resolved / Persisting / New
+      Session History list with scores and [View Brief]
+      Plateau alert if score unchanged across 3 sessions
+
+RESPONSIVE BEHAVIOR:
+  Mobile (< 768px):
+    Primary use case: WITNESS view (optimized for iOS Safari,
+    Android Chrome — full-screen avatar + large "Your Turn" button)
+    Attorney views on mobile: degraded read-only tasks only
+    Live Session on mobile: NOT recommended (alert rail collapses
+    to notification badge with [Show Alerts] FAB -> bottom sheet)
+
+  Tablet (768-1024px):
+    Alert rail collapses to 240px; collapse toggle available
+    Single-column brief, radar chart full-width
+
+  Desktop (>= 1024px) — PRIMARY EXPERIENCE:
+    Three-panel live session layout
+    Two-column brief viewer (score/summary left, detail right)
+    Keyboard shortcuts:
+      Space    = pause / resume session
+      Cmd+N    = add timestamped note
+      Esc      = close modals
+      Cmd+E    = end session (with confirmation dialog)
+    Minimum recommended resolution: 1280 x 768
+
+==============================================================
+14. AUTHENTICATION & AUTHORIZATION
+==============================================================
+
+METHODS:
+  Firm SSO (SAML 2.0 / Okta):  Enterprise IdP redirect
+                                AmLaw 200, iManage firms
+  Email + Password:             Standard login form (firm IT managed)
+                                bcrypt hash, cost factor 12
+  Magic Link (witness only):    Tokenized URL, no account required
+                                nanoid 24-char, 72-hour TTL Redis key
+  Brief Share Token:            7-day TTL, nanoid 24-char
+                                Witness sees read-only view only
+
+NO OAuth social login (Google, Apple). Enterprise legal tool.
+Firm IT controls identity. No consumer signup flow.
+
+JWT TOKEN DETAILS:
+  Access token: 8-hour TTL
+  Claims: firmId, userId, role, email
+  Refresh token: long-lived, stored in Redis + RefreshToken model
+
+ROUTE AUTHENTICATION MATRIX:
+  /                          Public (no auth)
+  /login                     Public (auth users -> /dashboard)
+  /onboarding                Public + firm token (72hr TTL)
+  /witness/session/:id        Witness token in URL (no firm login)
+  /briefs/:id?token=:token    Attorney JWT OR 7-day share token
+  /dashboard, /cases/*       Valid JWT + firm membership
+  /admin/*                   JWT + Admin role claim
+  /cases/:id (not owner)     403 — case isolation enforced
+
+FIRM ADMIN PANEL (/admin):
+  /admin/users:     Active users, pending invites, roles, deactivate
+  /admin/security:  Retention period, SSO config, Sentinel toggle
+  /admin/analytics: Sessions run, witnesses prepped, avg scores
+  /admin/billing:   Plan, seats, renewal date, [Upgrade]
+
+ATTORNEY SETTINGS (/settings):
+  /settings/profile:       Name, email (read-only if SSO), role
+  /settings/session:       Default duration, aggression, Copilot toggle
+  /settings/notifications: Email toggles (brief ready, plateau, reminder)
+  /settings/security:      Change password, active sessions list
+
+==============================================================
+15. ERROR HANDLING & GRACEFUL DEGRADATION
+==============================================================
+
+SERVICE DEGRADATION CHAINS:
+  Nemotron down (> 5s timeout or error):
+    -> Inconsistency Detector: Claude-only, threshold 0.75 -> 0.85
+    -> Argument Strength Scoring (P1.3): disabled for session
+    Rail badge: "Scoring: Claude-only mode (Nemotron unavailable)"
+
+  ElevenLabs TTS down:
+    -> Questions render as text cards in center transcript
+    Banner: "Audio paused — questions displayed as text"
+    -> Witness view: large centered text replaces voice
+
+  ElevenLabs STT down:
+    -> Browser Web Speech API fallback (lower accuracy)
+    Banner: "Voice recognition in fallback mode"
+
+  Both TTS and STT down:
+    -> Full text-only mode
+    Banner: "Text-only mode active — voice services unavailable"
+    Attorney types/selects questions; witness types answers
+
+  Databricks Vector Search down:
+    -> Objection Copilot: Claude-only from training knowledge
+    Rail badge: "FRE corpus offline — Copilot running Claude-only"
+    -> Inconsistency Detector: returns empty (no prior statements)
+
+SESSION DATA PROTECTION:
+  All session events persisted to Redis every 60 seconds
+  Maximum data loss on any failure: 60 seconds of session events
+  Browser offline: events buffered in IndexedDB; flushed on reconnect
+  Persistent top banner: "Connection lost — session data being saved"
+
+JWT EXPIRY DURING SESSION:
+  5-minute warning: non-dismissable modal -> [Extend]
+  Silent re-auth via SSO or password re-entry
+  Session data: all events already persisted, zero data loss
+
+HTTP ERROR STATES:
+  404: "Page not found" or "Case not found" + [Return to Dashboard]
+  403: "You don't have permission to access this case."
+  500 (transient): Toast "Something went wrong. [Retry]"
+  500 (page-level): "VERDICT is experiencing an issue."
+                    + status.verdict.law link
+                    Sentry + Databricks error event logged
+                    PagerDuty if error rate > 2% over 5 minutes
+
+FORM VALIDATION:
+  Fires on blur (per field). Submit blocked until all errors clear.
+  Case Name:         Required, 3-120 chars
+  Case Type:         Required dropdown
+  Deposition Date:   Must be in future
+  Witness Name:      Required, 2-80 chars
+  Witness Email:     Valid RFC 5322 format
+  Session Duration:  Required selection
+  Document upload:   PDF/DOCX/TXT only, <= 200MB
+
+CONCURRENT SESSIONS:
+  Two witnesses, same case: fully isolated
+  Separate session IDs, event streams, alert rails
+  System supports >= 20 simultaneous sessions (PostgreSQL 100
+  max connections; PgBouncer pools; Redis pub/sub fan-out)
+
+==============================================================
+16. DEPLOYMENT & INFRASTRUCTURE
+==============================================================
+
+HACKATHON ENVIRONMENT:
+  Frontend:  Lovable (primary) / Vercel (hobby)
+  Backend:   Railway (primary) + Render (backup)
+  Database:  Supabase (PostgreSQL 17.2 managed)
+  Redis:     Upstash Redis (managed, free tier)
+  Storage:   AWS S3 bucket: verdict-documents-hackathon (us-east-1)
+  Email:     Resend (100 emails/day free tier)
+
+v1.0 COMMERCIAL:
+  Frontend:  Vercel (Pro)
+  Backend:   Fly.io (dedicated)
+  Database:  AWS RDS PostgreSQL + ElastiCache Redis
+  Storage:   AWS S3 (same bucket, lifecycle policy)
+
+v2.0 SCALE:
+  Frontend:  Vercel Enterprise
+  Backend:   AWS ECS (containerized)
+  Database:  AWS RDS Multi-AZ + ElastiCache cluster
+
+BACKEND START COMMAND (Railway/Render):
+  alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+
+HEALTH CHECK: GET /api/v1/health
+  Returns: { status, timestamp, version, db }
+  db: "connected" if PostgreSQL responds to SELECT 1
+
+ENV VARS REQUIRED:
+  DATABASE_URL, REDIS_URL, JWT_SECRET, ANTHROPIC_API_KEY,
+  ELEVENLABS_API_KEY, ELEVENLABS_INTERROGATOR_VOICE_ID,
+  ELEVENLABS_COACH_VOICE_ID, ELEVENLABS_AGENT_ID,
+  NEMOTRON_API_KEY, NEMOTRON_MODEL, NEMOTRON_BASE_URL,
+  NEMOTRON_TIMEOUT_MS,
+  DATABRICKS_HOST, DATABRICKS_TOKEN, DATABRICKS_VECTOR_ENDPOINT,
+  DATABRICKS_VECTOR_INDEX, DATABRICKS_FRE_INDEX,
+  AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION,
+  S3_BUCKET_NAME, RESEND_API_KEY, FRONTEND_URL
+
+VERSION CONTROL:
+  GitHub (private repo)
+  Branching: Trunk-Based (short-lived feature branches)
+  Convention: Conventional Commits (feat/fix/chore/docs)
+  CI: GitHub Actions (pytest + Alembic migration + lint + e2e)
+  Hackathon exception: direct commits to main permitted
+
+DATA RETENTION & BACKUP:
+  Hackathon: Supabase managed daily backups (7-day retention)
+  Default firm retention: 90 days (configurable 30/60/90)
+  S3 documents: auto-delete lifecycle after retention_days
+  v1.0: AWS RDS automated snapshots daily (35-day retention)
+        Point-in-time recovery (7-day window)
+
+==============================================================
+17. SUCCESS CRITERIA & ACCEPTANCE TESTS
+==============================================================
+
+P0.1 — INTERROGATOR AGENT:
+  [x] First question chunk arrives within 2s of request
+  [x] build_system_prompt(case) returns prompt > 500 chars with
+      case-specific facts and 5-dimension scoring rubric
+  [x] Behavioral audio tags ([pause], [sigh]) present in prompt
+  [x] With hesitationDetected: true, question presses harder
+  [x] With recentInconsistencyFlag: true, extends that topic
+  [x] ElevenLabs QUESTION_AUDIO event received in frontend
+
+P0.2 — OBJECTION COPILOT:
+  [x] "Isn't it true you knew about the dosage?" ->
+      LEADING, FRE 611(c), confidence > 0.90
+  [x] "What did the doctor tell you?" ->
+      HEARSAY, FRE 801
+  [x] "Where were you on Tuesday?" ->
+      isObjectionable: false
+  [x] processingMs <= 1500 in response JSON
+  [x] UI alert card appears in live rail
+
+P0.3 — INCONSISTENCY DETECTOR:
+  [x] Demo contradiction detected (dosage $217 vs ~$200):
+      contradictionConfidence >= 0.75, isLiveFired: true
+  [x] Alert fires in live rail within 4s of answer
+  [x] Nemotron fallback: Claude-only with 0.85 threshold
+  [x] confidence 0.50-0.74 -> isLiveFired: false
+  [x] confidence < 0.50 -> flagFound: false
+
+P0.4 — CASE FILE INGESTION:
+  [x] PDF upload -> S3 presigned PUT -> confirm 200
+  [x] Ingestion pipeline runs (pdfplumber extract -> Claude facts)
+  [x] Document status progression: UPLOADING -> INDEXING -> READY
+  [x] Databricks prior_statements_index has upserted chunks
+  [x] Fact Review page shows extracted parties, dates, facts
+
+P0.5 — COACHING BRIEF:
+  [x] Brief generated within 3 minutes of session end
+  [x] Brief JSON includes: sessionScore, consistencyRate,
+      topRecommendations, narrativeText, weaknessMapScores
+  [x] ElevenLabs Coach audio (Rachel voice) auto-plays on load
+  [x] GET /api/v1/briefs/{id} returns full brief data
+  [x] GET /api/v1/briefs/share/{token} returns witness-safe view
+  [x] 7-day share token expires correctly (410 on expired)
+
+SYSTEM:
+  [x] GET /api/v1/health -> { status: "ok", db: "connected" }
+  [x] Login with seed credentials returns JWT
+  [x] Protected route with valid JWT -> 200
+  [x] Protected route with no JWT -> 401
+  [x] Case from different firm -> 404 (isolation)
+
+==============================================================
+18. POST-MVP ROADMAP
+==============================================================
+
+v1.1 (Month 1-2 post-hackathon):
+  - SAML/Okta SSO full implementation
+  - Behavioral Sentinel (P1.4) full rollout
+  - Native iOS and Android apps (React Native)
+  - Real-time WebSocket alert delivery (replace SSE polling)
+  - Full Admin analytics dashboard (sessions, avg score by attorney)
+
+v1.2 (Month 3-4):
+  - Multi-firm enterprise licensing
+  - Custom FRE rule corpus per jurisdiction (state courts)
+  - Argument Strength Scoring (P1.3) production release
+  - MLflow case outcome analytics (P2.3)
+
+v2.0 (Month 6+):
+  - Databricks Delta Live Tables: real-time Witness Composure
+    Timeline (emotion vectors + audio latency on one axis)
+  - Databricks SQL: Weakness Map queries from Delta Lake
+  - Multi-language deposition support (Spanish, Mandarin)
+  - Integration with iManage, NetDocuments (legal DMS)
+  - White-label for court reporting firms
+
+==============================================================
+DOCUMENT HISTORY:
+  v1.0  Feb 20, 2026  Initial PRD — VoiceFlow Intelligence
+  v2.0  Feb 22, 2026  Major update: Databricks Vector Search
+                      architecture, ElevenLabs Conversational AI
+                      details, Nemotron specifics, complete tech
+                      stack, multi-session adaptive behavior,
+                      full error handling chains, all 11 DB models,
+                      Behavioral Sentinel complete spec, witness
+                      token architecture, complete auth matrix,
+                      navigation map, UI/UX micro-interactions
+
+VERDICT AI Deposition Coaching Platform | Confidential
+Team VoiceFlow Intelligence | NYU Startup Week Buildathon 2026

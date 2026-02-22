@@ -33,9 +33,12 @@ class Settings(BaseSettings):
     NEMOTRON_MODEL: str = "nvidia/llama-3.1-nemotron-ultra-253b-v1"
     NEMOTRON_TIMEOUT_MS: int = 5000
 
-    NIA_API_KEY: str = ""
-    NIA_BASE_URL: str = "https://api.nozomio.com/v1"
-    NIA_FRE_CORPUS_INDEX_ID: str = "verdict-fre-rules-v1"
+    # Databricks Vector Search
+    DATABRICKS_HOST: str = ""            # e.g. https://adb-xxxx.azuredatabricks.net
+    DATABRICKS_TOKEN: str = ""           # Personal access token (dapi...)
+    DATABRICKS_VECTOR_ENDPOINT: str = "verdict-vector-endpoint"
+    DATABRICKS_VECTOR_INDEX: str = "verdict.sessions.prior_statements_index"
+    DATABRICKS_FRE_INDEX: str = "verdict.sessions.fre_rules_index"
 
     class Config:
         env_file = ".env"

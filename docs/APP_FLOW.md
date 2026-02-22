@@ -2,6 +2,7 @@
 > AI-Powered Deposition Coaching & Trial Preparation Platform  
 > Version: 1.0.0 — Hackathon Edition | February 21, 2026  
 > Track: AI Automation — August.law Sponsor Track | Team: VoiceFlow Intelligence
+<!-- Updated: Feb 22 2026 — Nia removed, Databricks Vector Search added, voiceagents integrated -->
 
 ---
 
@@ -177,7 +178,7 @@ Step 2: Document Upload → /cases/:caseId (Documents tab)
 │
 ├── User: Drops files into upload zone
 ├── System: Files upload with per-file progress bars (% complete)
-├── System: On upload complete → auto-triggers Nia ingestion pipeline
+├── System: On upload complete → auto-triggers ingestion pipeline
 └── Next: Ingestion Progress View (same screen, live status)
 
 Step 3: Document Ingestion (live on Documents tab)
@@ -190,11 +191,13 @@ Step 3: Document Ingestion (live on Documents tab)
 ├── [REVIEW EXTRACTED FACTS] button (active when ≥1 doc ready)
 ├── ETA shown: "~1m 45s remaining"
 │
-├── System (Nia + Databricks):
-│   ├── Nia indexes pages, extracts structured entities
-│   ├── Extracts: parties, key dates, disputed facts, prior sworn statements, exhibits
-│   ├── Target: < 3 minutes for 500-page document
-│   └── Stores: vectors in Databricks Delta Lake, isolated per case/firm
+├── Document Upload Flow:
+│   ├── Upload PDF/DOCX → S3 presigned PUT URL → confirm upload
+│   ├── text extraction (pdfplumber for PDF / python-docx for DOCX)
+│   ├── Claude fact extraction (parties, dates, disputedFacts, priorStatements)
+│   ├── get_embedding() [Databricks gte-large-en, 1024d]
+│   ├── upsert_prior_statement() [Databricks prior_statements_index, filtered by case_id]
+│   └── Status: PENDING → UPLOADING → INDEXING → READY
 │
 └── System: In-app notification + email when all docs ingested
 
@@ -209,7 +212,7 @@ Step 4: Fact Review → /cases/:caseId/documents/facts
 │   └── [CASE IS READY — ADD WITNESS] CTA (active when all sections confirmed)
 │
 ├── User: Reviews facts, corrects errors, confirms sections
-├── System: Saves corrections to Nia index (improves retrieval accuracy)
+├── System: Saves corrections to Databricks Vector Search index (improves retrieval accuracy)
 └── Success: All sections confirmed → attorney proceeds to add witness
 ```
 
@@ -219,16 +222,16 @@ Step 4: Fact Review → /cases/:caseId/documents/facts
 |-------|---------|---------|----------|
 | File too large | Upload > 200MB | "File is 312MB — max is 200MB. [Split document guide]" | Re-upload split version |
 | Unsupported format | .DOC, scanned image PDF | "Scanned/image PDFs not supported in v1.0. Use text-searchable PDFs." | Re-upload correct version |
-| Ingestion timeout | Nia API > 5 minutes | "Taking longer than expected. [Proceed with partial index] [Keep waiting]" | Partial or retry |
+| Ingestion timeout | Ingestion pipeline > 5 minutes | "Taking longer than expected. [Proceed with partial index] [Keep waiting]" | Partial or retry |
 | Zero text extracted | Blank/corrupted PDF | "No text content found. PDF may be image-only." | Re-upload text-searchable version |
 | Storage limit | Case total > 2GB | "Case storage limit reached. Remove old docs or contact support." | Delete docs or upgrade |
 
 #### EDGE CASES — Document Ingestion
 
-- **Duplicate upload:** Nia detects identical file hash → "This document looks identical to [filename]. Add anyway?"
+- **Duplicate upload:** Backend detects identical file hash (SHA-256) → "This document looks identical to [filename]. Add anyway?"
 - **Session configured before ingestion completes:** [Start Session] disabled with tooltip: "Waiting for document indexing to finish."
 - **Browser closed mid-upload:** Upload state stored server-side; attorney returns to exact progress on next visit.
-- **Re-upload of modified doc:** Replaces prior version; Nia re-indexes; prior session references preserved with version tag.
+- **Re-upload of modified doc:** Replaces prior version; re-upserts to Databricks Vector Search; prior session references preserved with version tag.
 
 ---
 
@@ -274,10 +277,13 @@ Step 2: Session Configuration → /cases/:caseId/witnesses/:witnessId/session/ne
 │   └── [START SESSION AS ATTORNEY] → attorney solo mode → /session/:id/lobby
 │
 ├── System: POST /api/sessions → session record created
+│   ├── build_system_prompt(case)            [uses extracted_facts, prior_statements, exhibit_list, focus_areas]
+│   ├── get_conversation_token(agent_id)     [ElevenLabs signed WebSocket URL]
+│   └── build_conversation_override(...)     [per-session ElevenLabs Conversational AI config]
 ├── System: Pre-briefs Interrogator Agent with:
 │   ├── Case type, witness role, configured focus areas
 │   ├── Prior session weak areas (Session 2+ only)
-│   └── Indexed prior sworn statements from Nia
+│   └── Indexed prior sworn statements from Databricks Vector Search
 └── Next: Session Lobby
 ```
 
@@ -389,7 +395,7 @@ Session complete (witness side): "Session complete. Your attorney will be in tou
 ```
 On session start:
 ├── Reads: case type, witness role, focus areas, prior weak areas (Session 2+)
-├── Nia query: retrieves relevant prior sworn statements for context
+├── search_prior_statements() via Databricks Vector Search: retrieves relevant prior sworn statements for context
 └── Initializes question strategy for case type
 
 Adaptive behavior during session:
@@ -411,7 +417,10 @@ Delivery:
 
 ```
 Per question — fires in parallel with delivery (≤ 1.5s):
-├── Question text → Claude + Nia FRE corpus semantic query
+├── get_embedding(question_text) [Databricks gte-large-en]
+├── search_fre_rules(top_k=3, deposition_only=True) [Databricks fre_rules_index]
+├── Top 3 FRE rules + Advisory Committee Notes → Claude classification
+├── { isObjectionable, freRule, category, confidence } in ≤1.5s
 ├── Classifies:
 │   ├── Leading (FRE 611c): suggests specific answer
 │   ├── Hearsay (FRE 801): out-of-court statement for truth of matter asserted
@@ -432,8 +441,10 @@ Per question — fires in parallel with delivery (≤ 1.5s):
 ```
 Per witness answer — fires ≤ 4s after answer:
 ├── Answer → Claude extracts key claims, facts, numerical values
-├── Nia semantic search → finds related prior sworn statements
-├── Nemotron scoring → logical consistency check
+├── get_embedding(witness_answer) [Databricks gte-large-en, 1024d]
+├── search_prior_statements(case_id, answer, top_k=3) [Databricks prior_statements_index]
+├── Top 3 semantically similar prior statements → Nemotron contradiction scoring
+├── If confidence ≥ 0.75: INCONSISTENCY alert → WebSocket to attorney
 │
 ├── Nemotron output: { contradiction_confidence: float, prior_quote, page, line }
 │
@@ -459,7 +470,7 @@ Per witness answer — fires ≤ 4s after answer:
 | ElevenLabs STT down | Transcription failure | Banner: "Voice recognition in fallback mode — accuracy reduced" | Browser Web Speech API fallback |
 | Both TTS + STT down | Full ElevenLabs outage | Banner: "Text-only mode active" | Attorney types questions; witness types answers |
 | Nemotron unavailable | API error / rate limit | Rail badge: "⚠️ Scoring: Claude-only mode (threshold raised to 0.85)" | Claude fallback, session continues |
-| Nia unavailable | Service down | Rail badge: "FRE corpus offline — Objection Copilot running Claude-only" | Claude handles objections without FRE lookup |
+| Databricks Vector Search unavailable | Service down | Rail badge: "FRE corpus offline — Objection Copilot running Claude-only" | Claude handles objections without FRE context |
 | Witness disconnects | WebSocket drop | Attorney: "⚠️ Witness disconnected at Q12 — session paused" | Witness reconnects via same link; resumes from last complete exchange |
 | Attorney disconnects | Browser close | Session state preserved; events buffered server-side | Reopen browser → session restores; Interrogator may continue if witness connected |
 | Camera denied (Sentinel) | Witness refuses permission | Silent degradation | Attorney notified: "Behavioral Sentinel inactive — camera access not granted" |
@@ -485,9 +496,11 @@ Brief Generation → triggered when session ends
 │   ├── Collects all confirmed flags, objection events, attorney annotations
 │   ├── Computes: session score (0–100), topic sub-scores, delta vs. Session 1
 │   ├── Synthesizes: top 3 coaching recommendations
-│   ├── Claude: generates attorney-review-quality narrative brief
-│   ├── ElevenLabs Coach Voice: narrates key flagged moments as audio clips
-│   └── PDF: rendered server-side; shareable link generated with 7-day TTL
+│   ├── generate_rule_based_report(transcript, events, case)
+│   ├── Claude narrative synthesis (coaching brief text)
+│   ├── ElevenLabs TTS Rachel voice (narrates flagged moments)
+│   ├── PDF generation (matplotlib radar chart + reportlab)
+│   └── Brief saved to PostgreSQL → brief_id returned
 
 Brief Viewer → /briefs/:briefId
 
@@ -513,11 +526,10 @@ OBJECTIONS SECTION:
 ├── Training note: "Witness answered Q7 before pausing — coach to wait 3 seconds on leading questions"
 └── Objection rate: "4 objectionable questions — witness paused on 1 of 4"
 
-WEAKNESS MAP (P1.2 — Databricks radar chart):
-├── 6 axes: Timeline, Financial, Communications, Relationships, Actions, Prior Statements
-│   └── + Composure axis (if Behavioral Sentinel was active)
-├── Each axis scored 0–100 (Nemotron topic cluster scoring)
-└── Click axis → drill into lowest-scoring exchanges for that topic
+WEAKNESS MAP (P1.2 — Performance radar chart):
+├── 5 dimensions: Composure, Tactical Discipline, Professionalism, Directness, Consistency
+├── Each dimension scored 0–100 (rule-based heuristic analysis + Claude coaching brief)
+└── Click dimension → drill into lowest-scoring exchanges for that performance area
 
 TOP 3 COACHING RECOMMENDATIONS:
 ├── "1. Address the $200 vs $217 dosage discrepancy — prepare a precise explanation."

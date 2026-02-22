@@ -46,8 +46,8 @@ Generate a coaching brief as JSON:
   "topRecommendations": ["<rec 1>", "<rec 2>", "<rec 3>"],
   "narrativeText": "<2-3 paragraph coaching narrative>",
   "weaknessMapScores": {{
-    "timeline": <0-100>, "financials": <0-100>, "communications": <0-100>,
-    "relationships": <0-100>, "composure": <0-100>
+    "composure": <0-100>, "tactical_discipline": <0-100>, "professionalism": <0-100>,
+    "directness": <0-100>, "consistency": <0-100>
   }},
   "confirmedFlags": <integer>,
   "objectionCount": <integer>,

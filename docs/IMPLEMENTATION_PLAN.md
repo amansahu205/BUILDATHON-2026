@@ -3,6 +3,7 @@
 > Version: 1.0.0 — Hackathon Edition | February 21, 2026  
 > Team: VoiceFlow Intelligence | Track: AI Automation — August.law Sponsor Track  
 > Build Window: **48 hours** | Feb 20 (6 PM) → Feb 22 (6 PM)
+<!-- Updated: Feb 22 2026 — Nia removed, Databricks Vector Search added, voiceagents integrated -->
 
 ---
 
@@ -11,7 +12,7 @@
 1. [Overview](#1-overview)
 2. [Pre-Hackathon Checklist (T-24 hrs)](#2-pre-hackathon-checklist-t-24-hrs)
 3. [Phase 1 — Foundation (Hour 0–4, Fri 6–10 PM)](#3-phase-1--foundation-hour-04-fri-610-pm)
-4. [Phase 2 — Core AI Agents (Hour 4–12, Fri 10 PM–Sat 6 AM)](#4-phase-2--core-ai-agents-hour-412-fri-10-pmsat-6-am)
+4. [Phase 2 — Core AI Agents + Databricks (Hour 4–12, Fri 10 PM–Sat 6 AM)](#4-phase-2--core-ai-agents-hour-412-fri-10-pmsat-6-am)
 5. [Phase 3 — Full Pipeline (Hour 12–24, Sat 6 AM–6 PM)](#5-phase-3--full-pipeline-hour-1224-sat-6-am6-pm)
 6. [Phase 4 — Polish + Brief (Hour 24–36, Sat 6 PM–Sun 6 AM)](#6-phase-4--polish--brief-hour-2436-sat-6-pmsun-6-am)
 7. [Phase 5 — Integration + P1 Features (Hour 36–44, Sun 6 AM–2 PM)](#7-phase-5--integration--p1-features-hour-3644-sun-6-am2-pm)
@@ -40,9 +41,9 @@
 
 | Member | Primary Role | Owns |
 |--------|-------------|------|
-| **Aman** | AI/ML + Orchestration | Claude SDK agent loop, Nemotron integration, Behavioral Sentinel, Nia RAG |
+FOUND_AMAN
 | **Nikhil** | Backend + Data Pipelines | FastAPI, PostgreSQL (SQLAlchemy), Redis, Databricks Delta Lake schema |
-| **Dhanush** | Frontend + UI/UX | Next.js pages, shadcn/ui components, Framer Motion, Recharts radar |
+| **Dhanush** | Frontend + UI/UX | Vite+React pages, shadcn/ui components, Framer Motion, Recharts radar |
 | **[Member 4]** | Full-Stack / Integration | Auth (SAML/JWT), WebSocket plumbing, ElevenLabs Conversational AI, deployment |
 
 ### Build Philosophy
@@ -53,7 +54,7 @@
 1. P0.1 Interrogator Agent — ElevenLabs voice questions
 2. P0.2 Objection Copilot — FRE classification ≤1.5s
 3. P0.3 Inconsistency Detector — Nemotron scoring ≤4s
-4. P0.4 Case File Ingestion — PDF → Nia → extracted facts
+4. P0.4 Case File Ingestion — PDF → S3 → extracted facts → Databricks Vector Search upsert
 5. P0.5 Coaching Brief — Review Orchestrator + ElevenLabs narration
 
 **Cut if behind schedule (in order):** P1.4 Behavioral Sentinel → P1.2 Weakness Map → P1.1 Multi-session profile → brief PDF export → SAML SSO (keep email/password)
@@ -94,13 +95,16 @@ curl -X POST https://integrate.api.nvidia.com/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{"model":"nvidia/llama-3.1-nemotron-ultra-253b-v1","messages":[{"role":"user","content":"ping"}],"max_tokens":10}'
 
-# Nia API (confirm index endpoint)
-curl -H "Authorization: Bearer $NIA_API_KEY" \
-  $NIA_BASE_URL/health
+# Databricks Vector Search (verify endpoint exists)
+python -c "from databricks.vector_search.client import VectorSearchClient; c = VectorSearchClient(); print(c.list_endpoints())"
 
 # Databricks SQL warehouse
-npx tsx scripts/test-databricks.ts
-# Should return: { status: 'connected', warehouseId: '...' }
+python -c "
+from databricks.sdk import WorkspaceClient
+w = WorkspaceClient()
+wh = w.warehouses.get(os.environ['DATABRICKS_SQL_WAREHOUSE_ID'])
+print({'status': 'connected', 'warehouseId': wh.id})
+"
 ```
 
 ### Infrastructure Pre-Provisioned
@@ -119,7 +123,8 @@ npx tsx scripts/test-databricks.ts
 ### Pre-Built Assets (prepared in the 24 hrs before)
 
 - [ ] SQLAlchemy models written and validated (all 11 models in `app/models/`)
-- [ ] FRE corpus text file prepared for Nia indexing (`scripts/nia/fre-corpus.txt`)
+- [ ] FRE XML file from uscode.house.gov ready for ingestion (`scripts/fre_xml_ingestion.py`)
+- [ ] Databricks Vector Search endpoint + indexes created (`scripts/setup_databricks.py`)
 - [ ] Sample case document ready for demo: `demo/chen_v_metropolitan.pdf` (real-looking, 50 pages)
 - [ ] ElevenLabs voice IDs confirmed: Interrogator (`Adam`), Coach (`Rachel`)
 - [ ] MediaPipe face_landmarker.task model file downloaded to `public/models/`
@@ -158,8 +163,8 @@ cat > package.json << 'EOF'
   "private": true,
   "workspaces": ["apps/*", "packages/*"],
   "scripts": {
-    "dev:frontend": "npm run dev --workspace=apps/frontend",
-    "dev:backend": "cd verdict-backend && uvicorn app.main:app --reload --port 4000",
+    "dev:frontend": "npm run dev --prefix verdict-frontend/design-first-focus",
+    "dev:backend": "uvicorn app.main:app --reload --port 4000 --app-dir verdict-backend",
     "build": "npm run build --workspace=apps/frontend",
     "lint": "eslint apps/frontend",
     "typecheck": "tsc --noEmit -p apps/frontend/tsconfig.json",
@@ -183,26 +188,13 @@ cat > package.json << 'EOF'
 }
 EOF
 
-# Initialize frontend (Next.js)
-cd apps/frontend
-npx create-next-app@15.1.6 . \
-  --typescript \
-  --tailwind \
-  --eslint \
-  --app \
-  --src-dir \
-  --import-alias "@/*" \
-  --no-git
+# Frontend already scaffolded with Vite+React in verdict-frontend/design-first-focus/
+cd verdict-frontend/design-first-focus
+npm install  # Installs React, Vite, shadcn/ui, Tailwind, Zustand, axios, etc.
 
 # Backend already set up as FastAPI/Python in verdict-backend/
 cd ../../verdict-backend
 pip install -r requirements.txt  # FastAPI + SQLAlchemy + all Python deps
-
-# Shared types package
-cd ../../packages/shared
-npm init -y
-mkdir src
-touch src/index.ts  # API types, Zod schemas shared between frontend + backend
 
 # Push initial commit
 cd ../..
@@ -500,13 +492,13 @@ Before moving to Phase 2, all 4 members verify:
 
 ## 4. PHASE 2 — CORE AI AGENTS (Hour 4–12, Fri 10 PM–Sat 6 AM)
 
-**Goal:** Interrogator Agent asking questions via ElevenLabs, Objection Copilot firing FRE alerts, and Nia FRE corpus indexed. All three testable via manual curl before Phase 3.
+**Goal:** Interrogator Agent asking questions via ElevenLabs, Objection Copilot firing FRE alerts via Databricks Vector Search, and Inconsistency Detector using Databricks prior_statements_index. All three testable via manual curl before Phase 3.
 
 **Parallel workstreams — split the team:**
 
 | Hours 4–8 | Hours 8–12 |
 |-----------|-----------|
-| **Aman:** Interrogator Agent + Claude SDK setup | **Aman:** Objection Copilot + Nia FRE query |
+| **Aman:** Interrogator Agent + Claude SDK + build_system_prompt | **Aman:** Objection Copilot + Databricks Vector Search (fre_rules_index) |
 | **[M4]:** ElevenLabs TTS/STT integration | **[M4]:** WebSocket session room setup |
 | **Nikhil:** Session + Cases API routes | **Nikhil:** Document upload pipeline (S3 presign) |
 | **Dhanush:** Design system + layout shell | **Dhanush:** Login page + Dashboard shell |
@@ -561,92 +553,208 @@ asyncio.run(test())
 
 ---
 
-### Step 2.2 — Nia API Integration + FRE Corpus Indexing
+### Step 2.2a — Databricks Vector Search Setup
 
 **Owner:** Aman  
-**Duration:** 60 minutes  
-**Goal:** Nia client working, FRE rules corpus indexed and queryable.
+**Duration:** 45 minutes  
+**Goal:** Both Vector Search indexes created and queryable. Foundation Model API for embeddings confirmed working.
+
+**One-time setup (run in Databricks notebook):**
+```python
+from databricks.vector_search.client import VectorSearchClient
+
+client = VectorSearchClient()
+
+# Create endpoint (takes ~15 minutes first time)
+client.create_endpoint_and_wait(
+    name="verdict-vector-endpoint",
+    endpoint_type="STANDARD"
+)
+
+# Create FRE rules index
+client.create_direct_access_index(
+    endpoint_name="verdict-vector-endpoint",
+    index_name="verdict.sessions.fre_rules_index",
+    primary_key="id",
+    embedding_dimension=1024,
+    embedding_vector_column="embedding",
+    schema={
+        "id": "string", "rule_number": "string", "rule_title": "string",
+        "article": "string", "category": "string",
+        "is_deposition_relevant": "boolean", "chunk_type": "string",
+        "content": "string", "doc_type": "string", "source": "string",
+        "embedding": "array<float>"
+    }
+)
+
+# Create prior statements index
+client.create_direct_access_index(
+    endpoint_name="verdict-vector-endpoint",
+    index_name="verdict.sessions.prior_statements_index",
+    primary_key="id",
+    embedding_dimension=1024,
+    embedding_vector_column="embedding",
+    schema={
+        "id": "string", "case_id": "string", "content": "string",
+        "source_page": "int", "source_line": "int",
+        "speaker": "string", "doc_id": "string",
+        "embedding": "array<float>"
+    }
+)
+```
+
+**Ingest FRE corpus (one-time, run before demo):**
+```bash
+# Uses official uscode.house.gov USLM XML — all 11 Articles, Rules 101-1103
+python scripts/fre_xml_ingestion.py \
+  --xml data/usc28a.xml \
+  --host $DATABRICKS_HOST \
+  --token $DATABRICKS_TOKEN \
+  --catalog verdict \
+  --schema sessions
+```
+
+**New env vars to add:**
+```
+DATABRICKS_VECTOR_ENDPOINT=verdict-vector-endpoint
+DATABRICKS_VECTOR_INDEX=verdict.sessions.prior_statements_index
+DATABRICKS_FRE_INDEX=verdict.sessions.fre_rules_index
+```
+
+**✅ Success Criteria:**
+- [ ] `client.list_endpoints()` shows `verdict-vector-endpoint` with status ONLINE
+- [ ] `client.list_indexes("verdict-vector-endpoint")` shows both indexes
+- [ ] FRE corpus query returns FRE 611(c) for "Isn't it true" question text
+- [ ] Foundation Model API embedding call returns 1024-dimension vector
+
+---
+
+### Step 2.2b — Objection Copilot Update (P0.2)
+
+**Owner:** Aman  
+**Duration:** 30 minutes  
+**Goal:** Objection Copilot queries Databricks fre_rules_index instead of hardcoded rules.
 
 ```python
-# app/services/nia.py (already created)
+# app/services/databricks_vector.py
 import httpx
+from databricks.vector_search.client import VectorSearchClient
 from app.config import settings
 
-async def index_document(index_id: str, document_id: str, content: str, metadata: dict = None):
-    async with httpx.AsyncClient(timeout=10.0) as client:
+async def get_embedding(text: str) -> list[float]:
+    """Generate embedding via Databricks Foundation Model API."""
+    async with httpx.AsyncClient() as client:
         resp = await client.post(
-            f"{settings.NIA_BASE_URL}/index",
-            headers={"Authorization": f"Bearer {settings.NIA_API_KEY}"},
-            json={"indexId": index_id, "documentId": document_id, "content": content, "metadata": metadata or {}}
+            f"{settings.DATABRICKS_HOST}/serving-endpoints/databricks-gte-large-en/invocations",
+            headers={"Authorization": f"Bearer {settings.DATABRICKS_TOKEN}"},
+            json={"input": [text]},
+            timeout=10.0,
         )
-        return resp.json()
+        resp.raise_for_status()
+        return resp.json()["data"][0]["embedding"]
 
-async def search_index(index_id: str, query: str, top_k: int = 5, filters: dict = None):
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        resp = await client.post(
-            f"{settings.NIA_BASE_URL}/search",
-            headers={"Authorization": f"Bearer {settings.NIA_API_KEY}"},
-            json={"indexId": index_id, "query": query, "topK": top_k,
-  });
-  return data.results as Array<{
-    id: string;
-    content: string;
-    score: number;
-    metadata: Record<string, unknown>;
-  }>;
-}
+def search_fre_rules(question_text: str, top_k: int = 3, deposition_only: bool = True) -> list[dict]:
+    """Retrieve most relevant FRE rules for a deposition question."""
+    client = VectorSearchClient(
+        workspace_url=settings.DATABRICKS_HOST,
+        personal_access_token=settings.DATABRICKS_TOKEN,
+    )
+    index = client.get_index(settings.DATABRICKS_FRE_INDEX)
+    filters = {"is_deposition_relevant": True} if deposition_only else {}
+    results = index.similarity_search(
+        query_text=question_text,
+        columns=["rule_number", "rule_title", "article", "category", "content", "chunk_type"],
+        filters=filters,
+        num_results=top_k,
+    )
+    return results.get("result", {}).get("data_array", [])
+
+def search_prior_statements(case_id: str, witness_answer: str, top_k: int = 3) -> list[dict]:
+    """Retrieve semantically similar prior statements for a case."""
+    client = VectorSearchClient(
+        workspace_url=settings.DATABRICKS_HOST,
+        personal_access_token=settings.DATABRICKS_TOKEN,
+    )
+    index = client.get_index(settings.DATABRICKS_VECTOR_INDEX)
+    results = index.similarity_search(
+        query_text=witness_answer,
+        columns=["id", "content", "source_page", "source_line", "speaker"],
+        filters={"case_id": case_id},
+        num_results=top_k,
+    )
+    return results.get("result", {}).get("data_array", [])
+
+def upsert_prior_statement(statement_id: str, case_id: str, content: str, metadata: dict) -> None:
+    """Upsert a prior statement into the prior_statements_index (called during doc ingestion)."""
+    import asyncio
+    embedding = asyncio.run(get_embedding(content))
+    client = VectorSearchClient(
+        workspace_url=settings.DATABRICKS_HOST,
+        personal_access_token=settings.DATABRICKS_TOKEN,
+    )
+    index = client.get_index(settings.DATABRICKS_VECTOR_INDEX)
+    index.upsert({"id": statement_id, "case_id": case_id, "content": content,
+                  "embedding": embedding, **metadata})
 ```
 
-```typescript
-// scripts/nia/index-fre-corpus.ts — run ONCE before hackathon
-import { indexDocument } from '../../apps/backend/src/lib/nia';
-
-const FRE_RULES = [
-  {
-    id: 'fre-611c',
-    rule: 'FRE 611(c)',
-    category: 'LEADING',
-    description: 'Leading questions on direct examination are generally not permitted...',
-    examples: ['Isn\'t it true that...', 'You would agree that...'],
-  },
-  {
-    id: 'fre-801',
-    rule: 'FRE 801',
-    category: 'HEARSAY',
-    description: 'Hearsay is an out-of-court statement offered to prove the truth of the matter asserted...',
-    examples: ['Tell us what your colleague said...', 'What did the report say?'],
-  },
-  // ... all 5 FRE categories
-];
-
-async function main() {
-  for (const rule of FRE_RULES) {
-    await indexDocument({
-      indexId: process.env.NIA_FRE_CORPUS_INDEX_ID!,
-      documentId: rule.id,
-      content: `${rule.rule}: ${rule.description}\n\nExamples: ${rule.examples.join('; ')}`,
-      metadata: { rule: rule.rule, category: rule.category },
-    });
-    console.log(`✅ Indexed: ${rule.rule}`);
-  }
-}
-
-main();
+**Updated Objection Copilot flow:**
 ```
+Question text
+→ search_fre_rules(question_text, top_k=3, deposition_only=True) [Databricks fre_rules_index]
+→ Top 3 FRE rules + Advisory Committee Notes
+→ Claude prompt with FRE context → JSON response
+→ { isObjectionable, freRule, category, explanation, confidence } in ≤1.5s
+```
+
+**✅ Success Criteria:**
+- [ ] `search_fre_rules("Isn't it true you knew about the dosage?")` returns FRE 611(c) as top result
+- [ ] Objection Copilot response arrives within 1,500ms
+- [ ] FRE Advisory Committee Notes in context improves classification accuracy
+
+---
+
+### Step 2.2c — Voiceagents Integration
+
+**Owner:** Aman  
+**Duration:** 30 minutes  
+**Goal:** Copy voiceagents service files into main backend. These contain the actual interrogator orchestration logic.
 
 ```bash
-# Index FRE corpus (run before hackathon, or Hour 0)
-npx tsx scripts/nia/index-fre-corpus.ts
-
-# Test query
-npx tsx -e "
-const { searchIndex } = require('./apps/backend/src/lib/nia');
-searchIndex({
-  indexId: process.env.NIA_FRE_CORPUS_INDEX_ID,
-  query: 'Isn\\'t it true you knew about the dosage?'
-}).then(r => console.log('Nia results:', r));
-"
+# Files already present in app/agents/ and app/services/ (copied from verdict_voiceagents/):
+# app/agents/prompt.py        — build_system_prompt(case) 
+# app/services/aggression.py  — score_witness(), score_vulnerability()
+# app/services/report_generator.py — generate_rule_based_report()
+# app/services/pdf_report.py  — generate_pdf() with matplotlib radar chart
 ```
+
+**`build_system_prompt(case)` — key function:**
+- Takes case with fields: `extracted_facts`, `prior_statements`, `exhibit_list`, `focus_areas`, `aggression_level`
+- Returns rich interrogator system prompt with behavioral audio tags: `[pause]`, `[sigh]`, `[nervous laugh]`
+- 5-dimension scoring rubric built into the prompt
+- Replaces the 8-line INTERROGATOR_SYSTEM constant
+
+**Updated ElevenLabs service — add to `app/services/elevenlabs.py`:**
+```python
+async def get_conversation_token(agent_id: str) -> str:
+    """Get signed WebSocket URL for ElevenLabs Conversational AI session."""
+    result = await eleven.conversational_ai.get_signed_url(agent_id=agent_id)
+    return result.signed_url
+
+def build_conversation_override(system_prompt: str, first_message: str) -> dict:
+    """Build per-session ElevenLabs conversation config override.
+    Prevents race conditions from mutating shared agent configuration."""
+    return {
+        "agent": {
+            "prompt": {"prompt": system_prompt},
+            "first_message": first_message,
+        }
+    }
+```
+
+**✅ Success Criteria:**
+- [ ] `build_system_prompt(case)` returns prompt >500 chars with case-specific facts
+- [ ] `get_conversation_token(agent_id)` returns a valid WSS URL
+- [ ] `generate_rule_based_report(transcript, events, case)` returns dict with sessionScore
 
 ---
 
@@ -654,132 +762,145 @@ searchIndex({
 
 **Owner:** Aman  
 **Duration:** 90 minutes  
-**Goal:** `POST /sessions/:id/agents/question` returning streamed question text within 2 seconds.
+**Goal:** Session creation uses `build_system_prompt(case)` + ElevenLabs `conversation_config_override`. Question streaming via SSE returns first chunk within 2 seconds.
 
-```typescript
-// apps/backend/src/modules/agents/interrogator.agent.ts
-import { claudeStream } from '../../lib/claude';
-import { searchIndex } from '../../lib/nia';
+```python
+# app/agents/interrogator.py -- already implemented
+# Accepts VerdictCase object; queries Databricks Vector Search for prior statements
 
-const INTERROGATOR_SYSTEM = `You are a highly skilled opposing counsel conducting a deposition.
-Your goal is to expose inconsistencies in the witness's testimony.
-You ask ONE focused question at a time. Questions are precise, legally professional.
-You adapt based on the witness's prior answers and detected hesitations.
-NEVER ask compound questions. NEVER reveal your strategy.
-Format: Return only the question text, no preamble.`;
+from app.agents.models import VerdictCase
+from app.services.claude import claude_stream
+from app.services.databricks_vector import search_prior_statements
+from app.agents.prompt import build_system_prompt
 
-export async function generateQuestion(params: {
-  caseType: string;
-  witnessRole: string;
-  currentTopic: string;
-  aggressionLevel: 'STANDARD' | 'ELEVATED' | 'HIGH_STAKES';
-  priorAnswer?: string;
-  questionNumber: number;
-  hesitationDetected: boolean;
-  recentInconsistencyFlag: boolean;
-  niaSessionContextId: string;
-  priorWeakAreas?: string[];
-}): AsyncGenerator<string> {
-  // Retrieve relevant prior statements from Nia
-  const niaContext = params.priorAnswer
-    ? await searchIndex({
-        indexId: params.niaSessionContextId,
-        query: params.priorAnswer,
-        topK: 3,
-      })
-    : [];
 
-  const aggressionInstructions = {
-    STANDARD: 'Ask methodically. Allow witness to elaborate.',
-    ELEVATED: 'Press on contradictions. Use controlled silence.',
-    HIGH_STAKES: 'Maximum pressure. Expose inconsistencies directly. Demand specifics.',
-  }[params.aggressionLevel];
+async def generate_question(
+    case: VerdictCase,
+    current_topic: str,
+    question_number: int,
+    prior_answer: str = None,
+    hesitation_detected: bool = False,
+    recent_inconsistency_flag: bool = False,
+    prior_weak_areas: list[str] = None,
+):
+    system_prompt = build_system_prompt(case)
 
-  const userMessage = `
-Case type: ${params.caseType}
-Witness role: ${params.witnessRole}
-Current focus topic: ${params.currentTopic}
-Question number: ${params.questionNumber}
-${params.priorAnswer ? `Witness last answered: "${params.priorAnswer}"` : 'First question on this topic.'}
-${params.hesitationDetected ? '⚠️ Witness hesitated significantly before answering.' : ''}
-${params.recentInconsistencyFlag ? '🚨 Inconsistency detected in last answer — probe this area harder.' : ''}
-${niaContext.length > 0 ? `Relevant prior sworn statements:\n${niaContext.map(r => `- "${r.content}"`).join('\n')}` : ''}
-Prior weak areas for this witness: ${params.priorWeakAreas?.join(', ') ?? 'None (first session)'}
-Aggression instruction: ${aggressionInstructions}
+    # Retrieve semantically similar prior statements from Databricks Vector Search
+    prior_context = []
+    if prior_answer:
+        prior_context = await search_prior_statements(
+            case_id=case.id, witness_answer=prior_answer, top_k=3
+        )
 
-Generate the next deposition question:`.trim();
+    aggression_instructions = {
+        "STANDARD":    "Ask methodically. Allow witness to elaborate.",
+        "ELEVATED":    "Press on contradictions. Use controlled silence.",
+        "HIGH_STAKES": "Maximum pressure. Expose inconsistencies directly. Demand specifics.",
+    }.get(case.aggression_level, "Ask methodically.")
 
-  return claudeStream(INTERROGATOR_SYSTEM, userMessage, 200);
-}
+    prior_lines = ""
+    if prior_context:
+        prior_lines = "Relevant prior sworn statements:
+" + "
+".join(
+            f'- "{r.get("content", "")}"' for r in prior_context
+        )
+
+    user_message = (
+        f"Case type: {case.case_type}
+"
+        f"Witness role: {case.witness_role}
+"
+        f"Current focus topic: {current_topic}
+"
+        f"Question number: {question_number}
+"
+        + (f'Witness last answered: "{prior_answer}"' if prior_answer else "First question on this topic.") + "
+"
+        + ("Witness hesitated significantly before answering.
+" if hesitation_detected else "")
+        + ("Inconsistency detected in last answer -- probe this area harder.
+" if recent_inconsistency_flag else "")
+        + f"{prior_lines}
+"
+        + f"Prior weak areas: {', '.join(prior_weak_areas) if prior_weak_areas else 'None (first session)'}
+"
+        + f"Aggression instruction: {aggression_instructions}
+
+"
+        + "Generate the next deposition question:"
+    ).strip()
+
+    async for chunk in claude_stream(system_prompt, user_message, max_tokens=200):
+        yield chunk
 ```
 
-```typescript
-// Route: POST /api/v1/sessions/:sessionId/agents/question
-// In sessions module routes file:
-fastify.post('/:sessionId/agents/question', {
-  preHandler: [requireAuth],
-}, async (request, reply) => {
-  const { sessionId } = request.params as { sessionId: string };
-  const body = request.body as {
-    questionNumber: number;
-    priorAnswer?: string;
-    hesitationDetected: boolean;
-    recentInconsistencyFlag: boolean;
-    currentTopic: string;
-  };
+```python
+# app/routers/sessions.py -- POST /api/v1/sessions/{session_id}/agents/question
 
-  const session = await db.session.findUnique({
-    where: { id: sessionId },
-    include: { case: true },
-  });
-  if (!session) return reply.code(404).send({ error: 'NOT_FOUND' });
+from app.agents.models import VerdictCase
+from app.agents.interrogator import generate_question
 
-  // Stream response as Server-Sent Events
-  reply.raw.setHeader('Content-Type', 'text/event-stream');
-  reply.raw.setHeader('Cache-Control', 'no-cache');
-  reply.raw.setHeader('Connection', 'keep-alive');
+@router.post("/{session_id}/agents/question")
+async def stream_question(
+    session_id: str,
+    body: QuestionRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_auth),
+):
+    result = await db.execute(
+        select(Session)
+        .where(Session.id == session_id, Session.firm_id == user.firm_id)
+        .options(selectinload(Session.case), selectinload(Session.witness))
+    )
+    session = result.scalar_one_or_none()
+    if not session:
+        raise HTTPException(404, detail={"code": "NOT_FOUND"})
 
-  const start = Date.now();
-  let fullText = '';
+    case = VerdictCase(
+        id=session.case.id,
+        case_name=session.case.name,
+        case_type=session.case.case_type,
+        opposing_party=session.case.opposing_firm or "Unknown",
+        deposition_date=str(session.case.deposition_date or ""),
+        witness_name=session.witness.name if session.witness else "Unknown",
+        witness_role=session.witness.role if session.witness else "DEFENDANT",
+        extracted_facts=session.case.extracted_facts or "",
+        prior_statements=session.case.prior_statements or "",
+        exhibit_list=session.case.exhibit_list or "",
+        focus_areas=session.case.focus_areas or "",
+        aggression_level=session.aggression or "STANDARD",
+    )
 
-  reply.raw.write(`data: ${JSON.stringify({ type: 'QUESTION_START', questionNumber: body.questionNumber })}\n\n`);
+    async def event_stream():
+        full_text = ""
+        yield f"data: {json.dumps({'type': 'QUESTION_START', 'questionNumber': body.questionNumber})}
 
-  const stream = generateQuestion({
-    caseType: session.case.caseType,
-    witnessRole: 'DEFENDANT',
-    currentTopic: body.currentTopic,
-    aggressionLevel: session.aggressionLevel as any,
-    priorAnswer: body.priorAnswer,
-    questionNumber: body.questionNumber,
-    hesitationDetected: body.hesitationDetected,
-    recentInconsistencyFlag: body.recentInconsistencyFlag,
-    niaSessionContextId: session.niaSe ssionContextId ?? session.id,
-    priorWeakAreas: (session.priorWeakAreas as any)?.lowestAxes,
-  });
+"
+        async for chunk in generate_question(
+            case=case,
+            current_topic=body.currentTopic,
+            question_number=body.questionNumber,
+            prior_answer=body.priorAnswer,
+            hesitation_detected=body.hesitationDetected,
+            recent_inconsistency_flag=body.recentInconsistencyFlag,
+        ):
+            full_text += chunk
+            yield f"data: {json.dumps({'type': 'QUESTION_CHUNK', 'text': chunk})}
 
-  for await (const chunk of stream) {
-    fullText += chunk;
-    reply.raw.write(`data: ${JSON.stringify({ type: 'QUESTION_CHUNK', text: chunk })}\n\n`);
-  }
+"
+        try:
+            audio = await text_to_speech(full_text, settings.ELEVENLABS_INTERROGATOR_VOICE_ID)
+            yield f"data: {json.dumps({'type': 'QUESTION_AUDIO', 'audioBase64': base64.b64encode(audio).decode()})}
 
-  const latencyMs = Date.now() - start;
-  reply.raw.write(`data: ${JSON.stringify({ type: 'QUESTION_END', fullText, latencyMs })}\n\n`);
-  reply.raw.end();
+"
+        except Exception:
+            pass
+        yield f"data: {json.dumps({'type': 'QUESTION_END', 'fullText': full_text})}
 
-  // Log event
-  await db.sessionEvent.create({
-    data: {
-      sessionId,
-      firmId: session.firmId,
-      eventType: 'QUESTION_DELIVERED',
-      questionNumber: body.questionNumber,
-      speaker: 'INTERROGATOR',
-      textContent: fullText,
-      metadata: { latencyMs },
-      occurredAt: new Date(),
-    },
-  });
-});
+"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
 ```
 
 ```bash
@@ -811,77 +932,80 @@ curl -N -X POST http://localhost:4000/api/v1/sessions/SEED_SESSION_ID/agents/que
 **Duration:** 90 minutes  
 **Goal:** Interrogator question text → ElevenLabs audio → WebSocket to witness. STT transcribing witness audio → text.
 
-```typescript
-// apps/backend/src/lib/elevenlabs.ts
-import { ElevenLabsClient } from 'elevenlabs';
-import { Readable } from 'stream';
+```python
+# app/services/elevenlabs.py -- already implemented
+from elevenlabs.client import AsyncElevenLabs
+from app.config import settings
+import httpx
 
-export const eleven = new ElevenLabsClient({ apiKey: process.env.ELEVENLABS_API_KEY! });
+eleven = AsyncElevenLabs(api_key=settings.ELEVENLABS_API_KEY)
 
-export const VOICES = {
-  INTERROGATOR: process.env.ELEVENLABS_INTERROGATOR_VOICE_ID!, // 'Adam'
-  COACH: process.env.ELEVENLABS_COACH_VOICE_ID!,               // 'Rachel'
-};
-
-/**
- * Convert text to audio stream using ElevenLabs TTS
- * Returns a ReadableStream of audio bytes (mp3)
- */
-export async function textToSpeech(text: string, voiceId: string): Promise<Readable> {
-  const audioStream = await eleven.generate({
-    voice: voiceId,
-    text,
-    model_id: 'eleven_turbo_v2_5', // lowest latency model
-    stream: true,
-  });
-  return audioStream as unknown as Readable;
+VOICES = {
+    "INTERROGATOR": settings.ELEVENLABS_INTERROGATOR_VOICE_ID,  # Adam
+    "COACH":        settings.ELEVENLABS_COACH_VOICE_ID,          # Rachel
 }
 
-/**
- * Convert audio buffer to text using ElevenLabs STT
- */
-export async function speechToText(audioBuffer: Buffer): Promise<string> {
-  const transcription = await eleven.speechToText.convert({
-    audio: audioBuffer,
-    model_id: 'scribe_v1',
-  });
-  return transcription.text;
-}
+
+async def text_to_speech(text: str, voice_id: str = "") -> bytes:
+    vid = voice_id or VOICES["INTERROGATOR"]
+    audio = await eleven.text_to_speech.convert(
+        voice_id=vid, text=text, model_id="eleven_turbo_v2_5"
+    )
+    return b"".join([chunk async for chunk in audio])
+
+
+async def speech_to_text(audio_bytes: bytes) -> str:
+    from io import BytesIO
+    result = await eleven.speech_to_text.convert(
+        file=BytesIO(audio_bytes), model_id="scribe_v1"
+    )
+    return result.text or ""
+
+
+def get_conversation_token(agent_id: str) -> str:
+    # Signed WebSocket URL for ElevenLabs Conversational AI
+    resp = httpx.post(
+        "https://api.elevenlabs.io/v1/convai/conversation/get_signed_url",
+        headers={"xi-api-key": settings.ELEVENLABS_API_KEY},
+        json={"agent_id": agent_id},
+        timeout=10,
+    )
+    resp.raise_for_status()
+    return resp.json()["signed_url"]
+
+
+def build_conversation_override(system_prompt: str, first_message: str) -> dict:
+    # Per-session config override - prevents shared agent config mutation
+    return {"agent": {"prompt": {"prompt": system_prompt}, "first_message": first_message}}
 ```
 
-```typescript
-// apps/backend/src/modules/sessions/sessions.websocket.ts
-// After Interrogator generates question text → pipe TTS audio to witness via WebSocket
+```python
+# app/routers/ws.py -- WebSocket: witness audio -> STT -> attorney transcript (abbreviated)
+# Full implementation in Step 3.3; this shows the STT path only.
+from fastapi import WebSocket
+from app.services.elevenlabs import speech_to_text
 
-io.on('connection', (socket) => {
-  const { sessionId, role } = socket.handshake.query; // 'attorney' or 'witness'
-  socket.join(`session:${sessionId}`);
+@router.websocket("/ws/session/{session_id}")
+async def session_websocket(websocket: WebSocket, session_id: str):
+    await websocket.accept()
+    role = websocket.query_params.get("role", "attorney")
+    # auth check and room registry handled in Step 3.3
 
-  if (role === 'witness') {
-    socket.on('answer_audio', async (data: { audioBuffer: ArrayBuffer; questionNumber: number }) => {
-      const buffer = Buffer.from(data.audioBuffer);
-      const startTime = Date.now();
-      
-      try {
-        const transcribedText = await speechToText(buffer);
-        const sttLatencyMs = Date.now() - startTime;
-        
-        // Emit transcription to attorney
-        io.to(`session:${sessionId}:attorney`).emit('answer_received', {
-          questionNumber: data.questionNumber,
-          transcribedText,
-          sttLatencyMs,
-        });
-
-        // Trigger Objection + Inconsistency analysis
-        // (see Step 2.5 and Phase 3 Step 3.1)
-      } catch (err) {
-        // STT fallback: request text input from witness
-        socket.emit('stt_fallback', { message: 'Speech recognition unavailable. Please type your answer.' });
-      }
-    });
-  }
-});
+    async for raw in websocket.iter_bytes():
+        if role == "witness":
+            try:
+                transcribed_text = await speech_to_text(raw)
+                atty_ws = _rooms.get(session_id, {}).get("attorney")
+                if atty_ws:
+                    await atty_ws.send_json({
+                        "type": "answer_received",
+                        "transcribedText": transcribed_text,
+                    })
+            except Exception:
+                await websocket.send_json({
+                    "type": "stt_fallback",
+                    "message": "Speech recognition unavailable. Please type your answer.",
+                })
 ```
 
 **✅ Success Criteria:**
@@ -898,51 +1022,50 @@ io.on('connection', (socket) => {
 **Duration:** 60 minutes  
 **Goal:** `POST /sessions/:id/agents/objection` classifying questions in ≤1.5s. Must fire alert via WebSocket.
 
-```typescript
-// apps/backend/src/modules/agents/objection.agent.ts
-import { claudeChat } from '../../lib/claude';
-import { searchIndex } from '../../lib/nia';
+```python
+# app/agents/objection.py -- already implemented
+import json
+from app.services.claude import claude_chat
+from app.services.databricks_vector import search_fre_rules
 
-const OBJECTION_SYSTEM = `You are an expert attorney specializing in evidence law and Federal Rules of Evidence.
-Analyze the given deposition question for objectionable content.
-Respond ONLY with valid JSON. No preamble, no markdown.
+OBJECTION_SYSTEM = (
+    "You are an expert attorney specializing in evidence law and Federal Rules of Evidence.
+"
+    "Analyze the given deposition question for objectionable content.
+"
+    "Respond ONLY with valid JSON. No preamble, no markdown.
 
-JSON format:
-{
-  "isObjectionable": boolean,
-  "category": "LEADING" | "HEARSAY" | "COMPOUND" | "ASSUMES_FACTS" | "SPECULATION" | null,
-  "freRule": string | null,
-  "explanation": string | null,
-  "confidence": number
-}`;
+"
+    'JSON format:
+{"isObjectionable": boolean, "category": "LEADING"|"HEARSAY"|"COMPOUND"|'
+    '"ASSUMES_FACTS"|"SPECULATION"|null, "freRule": string|null, "explanation": string|null, "confidence": number}'
+)
 
-export async function analyzeForObjections(params: {
-  questionText: string;
-  sessionId: string;
-}): Promise<{
-  isObjectionable: boolean;
-  category: string | null;
-  freRule: string | null;
-  explanation: string | null;
-  confidence: number;
-}> {
-  // Retrieve relevant FRE rules from Nia for context
-  const [niaClaude] = await Promise.all([
-    claudeChat(
-      OBJECTION_SYSTEM,
-      `Analyze this deposition question for FRE objections:\n\n"${params.questionText}"`,
-      256
-    ),
-    searchIndex({
-      indexId: process.env.NIA_FRE_CORPUS_INDEX_ID!,
-      query: params.questionText,
-      topK: 2,
-    }),
-  ]);
 
-  const result = JSON.parse(niaClaude);
-  return result;
-}
+async def analyze_for_objections(question_text: str, session_id: str) -> dict:
+    # Top-3 relevant FRE rules from Databricks Vector Search (fre_rules_index)
+    fre_results = await search_fre_rules(
+        question_text=question_text, top_k=3, deposition_only=True
+    )
+    fre_context = ""
+    if fre_results:
+        fre_context = "
+
+Relevant FRE rules:
+" + "
+".join(
+            r.get("content", "") for r in fre_results
+        )
+
+    prompt = f'Analyze this deposition question for FRE objections:
+
+"{question_text}"{fre_context}'
+    raw = await claude_chat(OBJECTION_SYSTEM, prompt, max_tokens=256)
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        return {"isObjectionable": False, "category": None,
+                "freRule": None, "explanation": None, "confidence": 0.0}
 ```
 
 ```bash
@@ -970,11 +1093,71 @@ curl -X POST http://localhost:4000/api/v1/sessions/SEED_ID/agents/objection \
 
 ---
 
+### Step 2.7 — Railway Deployment Setup
+
+**Owner:** [Member 4]  
+**Duration:** 20 minutes  
+**Goal:** Backend deployable to Railway with a single `railway up` command.
+
+```bash
+# Required config files in verdict-backend/:
+
+# Procfile
+web: alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+
+# railway.toml
+[deploy]
+healthcheckPath = "/api/v1/health"
+healthcheckTimeout = 30
+restartPolicyType = "on_failure"
+
+# .python-version
+3.12
+
+# nixpacks.toml
+[phases.setup]
+nixPkgs = ["python312", "gcc"]
+
+# Deploy
+railway login
+railway link
+railway up
+
+# Post-deploy seed
+railway run python scripts/seed.py
+railway run python scripts/seed_cases.py
+```
+
+**Render backup (run once):**
+```bash
+# render.yaml already in verdict-backend/
+# Deploy via Render dashboard: New Web Service → Connect GitHub → verdict-backend/
+# Environment: set all .env vars in Render dashboard
+# Start command: alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+```
+
+**Frontend env:**
+```bash
+# verdict-frontend/design-first-focus/.env.production
+VITE_API_BASE_URL=https://verdict-backend-production.up.railway.app
+
+# .env.development (local)
+VITE_API_BASE_URL=http://localhost:4000
+```
+
+**✅ Success Criteria:**
+- [ ] `curl https://verdict-backend-production.up.railway.app/api/v1/health` → `{ "status": "ok" }`
+- [ ] Railway dashboard shows green health check
+- [ ] Render backup URL also returning 200 health check
+
+---
+
 ### Phase 2 Gate Check ✅ (Hour 12 — Sat 6 AM)
 
 - [ ] Interrogator question streams from Claude → ElevenLabs TTS → audio to witness browser
 - [ ] Objection Copilot fires within 1.5s — `objection_alert` visible in browser console
-- [ ] Nia FRE corpus returns results for objectionable questions
+- [ ] Databricks Vector Search `fre_rules_index` returns FRE 611(c) for "Isn't it true..." question
+- [ ] Databricks `prior_statements_index` created and accepting upserts
 - [ ] Login flow works end-to-end (browser form → JWT → protected API call)
 - [ ] Dashboard page renders with seed case data
 - [ ] Cases API: GET /cases, POST /cases working
@@ -983,7 +1166,7 @@ curl -X POST http://localhost:4000/api/v1/sessions/SEED_ID/agents/objection \
 
 ## 5. PHASE 3 — FULL PIPELINE (Hour 12–24, Sat 6 AM–6 PM)
 
-**Goal:** Complete end-to-end session flow: upload document → Nia ingestion → configure session → live session with all 3 P0 agents → Inconsistency Detector detecting the demo contradiction.
+**Goal:** Complete end-to-end session flow: upload document → S3 → Databricks Vector Search upsert → configure session → live session with all 3 P0 agents → Inconsistency Detector detecting the demo contradiction.
 
 **This is the highest-risk phase.** If any step takes >2x estimated time, escalate immediately.
 
@@ -993,147 +1176,126 @@ curl -X POST http://localhost:4000/api/v1/sessions/SEED_ID/agents/objection \
 
 **Owner:** Aman  
 **Duration:** 120 minutes  
-**Goal:** Witness answer compared against Nia-retrieved prior statements, Nemotron scoring, alert fired at ≥0.75 confidence.
+**Goal:** Witness answer compared against Databricks Vector Search prior_statements_index results, Nemotron scoring, alert fired at ≥0.75 confidence.
 
-```typescript
-// apps/backend/src/lib/nemotron.ts
-import axios from 'axios';
+```python
+# app/services/nemotron.py -- already implemented
+import json
+import httpx
+from app.config import settings
 
-const nemotron = axios.create({
-  baseURL: process.env.NEMOTRON_BASE_URL,
-  headers: { Authorization: `Bearer ${process.env.NEMOTRON_API_KEY}` },
-  timeout: parseInt(process.env.NEMOTRON_TIMEOUT_MS ?? '5000'),
-});
 
-export async function scoreContradiction(params: {
-  witnessAnswer: string;
-  priorStatements: Array<{ content: string; metadata: Record<string, unknown> }>;
-  caseContext: string;
-}): Promise<{
-  contradiction_confidence: number;
-  best_match_index: number;
-  reasoning: string;
-}> {
-  const prompt = `You are analyzing a witness deposition for contradictions.
+async def score_contradiction(
+    witness_answer: str,
+    prior_statements: list[dict],
+    case_context: str,
+) -> dict:
+    joined = "
+".join(f'[{i}] "{s.get("content","")}"' for i, s in enumerate(prior_statements))
+    prompt = (
+        "You are analyzing a witness deposition for contradictions.
 
-Case context: ${params.caseContext}
+"
+        f"Case context: {case_context}
 
-Witness answer just given:
-"${params.witnessAnswer}"
+"
+        f'Witness answer just given:
+"{witness_answer}"
 
-Prior sworn statements on record:
-${params.priorStatements.map((s, i) => `[${i}] "${s.content}"`).join('\n')}
+'
+        f"Prior sworn statements on record:
+{joined}
 
-Analyze whether the witness answer contradicts any prior statement.
-Respond ONLY with JSON:
-{
-  "contradiction_confidence": <float 0.0-1.0>,
-  "best_match_index": <integer index of most contradicted statement, or -1>,
-  "reasoning": "<one sentence explanation>"
-}`;
-
-  const { data } = await nemotron.post('/chat/completions', {
-    model: process.env.NEMOTRON_MODEL,
-    messages: [{ role: 'user', content: prompt }],
-    max_tokens: 200,
-    temperature: 0.1, // Low temperature for consistent scoring
-  });
-
-  const text = data.choices[0].message.content;
-  return JSON.parse(text);
-}
+"
+        'Respond ONLY with JSON: {"contradiction_confidence": float, '
+        '"best_match_index": int, "reasoning": "one sentence"}'
+    )
+    async with httpx.AsyncClient(timeout=settings.NEMOTRON_TIMEOUT_MS / 1000) as client:
+        resp = await client.post(
+            f"{settings.NEMOTRON_BASE_URL}/chat/completions",
+            headers={"Authorization": f"Bearer {settings.NEMOTRON_API_KEY}"},
+            json={"model": settings.NEMOTRON_MODEL,
+                  "messages": [{"role": "user", "content": prompt}],
+                  "max_tokens": 200, "temperature": 0.1},
+        )
+        resp.raise_for_status()
+    return json.loads(resp.json()["choices"][0]["message"]["content"])
 ```
 
-```typescript
-// apps/backend/src/modules/agents/inconsistency.agent.ts
-import { scoreContradiction } from '../../lib/nemotron';
-import { claudeChat } from '../../lib/claude';
-import { searchIndex } from '../../lib/nia';
+```python
+# app/agents/detector.py -- already implemented
+import json
+from app.services.databricks_vector import search_prior_statements
+from app.services.nemotron import score_contradiction
+from app.services.claude import claude_chat
 
-const CONFIDENCE_THRESHOLD_LIVE = 0.75;
-const CONFIDENCE_THRESHOLD_SECONDARY = 0.50;
-const CONFIDENCE_THRESHOLD_CLAUDE_FALLBACK = 0.85; // raised when Nemotron unavailable
+CONFIDENCE_THRESHOLD_LIVE = 0.75
+CONFIDENCE_THRESHOLD_SECONDARY = 0.50
+CONFIDENCE_THRESHOLD_CLAUDE_FALLBACK = 0.85
 
-export async function detectInconsistency(params: {
-  questionText: string;
-  answerText: string;
-  sessionId: string;
-  niaSessionContextId: string;
-  caseType: string;
-  behavioralCorroboration?: {
-    emotionCategory: string;
-    durationMs: number;
-  };
-}): Promise<{
-  flagFound: boolean;
-  isLiveFired: boolean;
-  contradictionConfidence: number;
-  priorQuote: string | null;
-  priorDocumentPage: number | null;
-  priorDocumentLine: number | null;
-  impeachmentRisk: 'STANDARD' | 'HIGH';
-}> {
-  // Step 1: Semantic search for related prior statements via Nia
-  const priorStatements = await searchIndex({
-    indexId: params.niaSessionContextId,
-    query: params.answerText,
-    topK: 5,
-  });
 
-  if (priorStatements.length === 0) {
-    return { flagFound: false, isLiveFired: false, contradictionConfidence: 0, priorQuote: null, priorDocumentPage: null, priorDocumentLine: null, impeachmentRisk: 'STANDARD' };
-  }
+async def detect_inconsistency(
+    question_text: str,
+    answer_text: str,
+    session_id: str,
+    case_id: str,
+    case_type: str,
+    behavioral_corroboration_ms: int = 0,
+) -> dict:
+    # Step 1: Semantic search via Databricks Vector Search (prior_statements_index)
+    prior_statements = await search_prior_statements(
+        case_id=case_id, witness_answer=answer_text, top_k=5
+    )
+    if not prior_statements:
+        return {"flagFound": False, "isLiveFired": False, "contradictionConfidence": 0,
+                "priorQuote": None, "priorDocumentPage": None,
+                "priorDocumentLine": None, "impeachmentRisk": "STANDARD"}
 
-  // Step 2: Nemotron scoring (with Claude fallback)
-  let score: { contradiction_confidence: number; best_match_index: number };
-  let usingFallback = false;
+    # Step 2: Nemotron scoring (with Claude fallback)
+    using_fallback = False
+    try:
+        score = await score_contradiction(
+            witness_answer=answer_text,
+            prior_statements=prior_statements,
+            case_context=f"{case_type} deposition",
+        )
+    except Exception:
+        using_fallback = True
+        raw = await claude_chat(
+            'Score contradiction 0-1. Return only JSON: {"contradiction_confidence": number, "best_match_index": number}',
+            f'Answer: "{answer_text}"
+Prior:
+'
+            + "
+".join(f"[{i}] {s.get('content','')}" for i, s in enumerate(prior_statements)),
+        )
+        score = json.loads(raw)
 
-  try {
-    score = await scoreContradiction({
-      witnessAnswer: params.answerText,
-      priorStatements,
-      caseContext: `${params.caseType} deposition`,
-    });
-  } catch {
-    // Nemotron unavailable — fallback to Claude with raised threshold
-    usingFallback = true;
-    const claudeResult = await claudeChat(
-      'Score contradiction confidence 0-1. Return only JSON: {"contradiction_confidence": float, "best_match_index": int}',
-      `Answer: "${params.answerText}"\nPrior statements:\n${priorStatements.map((s, i) => `[${i}] ${s.content}`).join('\n')}`
-    );
-    score = JSON.parse(claudeResult);
-  }
+    threshold = CONFIDENCE_THRESHOLD_CLAUDE_FALLBACK if using_fallback else CONFIDENCE_THRESHOLD_LIVE
+    confidence = score.get("contradiction_confidence", 0)
+    best_idx = score.get("best_match_index", -1)
+    best_match = prior_statements[best_idx] if 0 <= best_idx < len(prior_statements) else None
 
-  const threshold = usingFallback ? CONFIDENCE_THRESHOLD_CLAUDE_FALLBACK : CONFIDENCE_THRESHOLD_LIVE;
-  const confidence = score.contradiction_confidence;
-  const bestMatch = priorStatements[score.best_match_index];
+    if confidence < CONFIDENCE_THRESHOLD_SECONDARY:
+        return {"flagFound": False, "isLiveFired": False,
+                "contradictionConfidence": confidence, "priorQuote": None,
+                "priorDocumentPage": None, "priorDocumentLine": None, "impeachmentRisk": "STANDARD"}
 
-  // Step 3: Routing by confidence
-  if (confidence < CONFIDENCE_THRESHOLD_SECONDARY) {
-    return { flagFound: false, isLiveFired: false, contradictionConfidence: confidence, priorQuote: null, priorDocumentPage: null, priorDocumentLine: null, impeachmentRisk: 'STANDARD' };
-  }
+    impeachment_risk = "STANDARD"
+    adjusted_confidence = confidence
+    if behavioral_corroboration_ms >= 800:
+        impeachment_risk = "HIGH"
+        adjusted_confidence = min(1.0, confidence + 0.05)
 
-  const isLiveFired = confidence >= threshold;
-
-  // Step 4: Impeachment risk — upgrade if Behavioral Sentinel corroborates
-  let impeachmentRisk: 'STANDARD' | 'HIGH' = 'STANDARD';
-  let adjustedConfidence = confidence;
-
-  if (params.behavioralCorroboration && params.behavioralCorroboration.durationMs >= 800) {
-    impeachmentRisk = 'HIGH';
-    adjustedConfidence = Math.min(1.0, confidence + 0.05);
-  }
-
-  return {
-    flagFound: true,
-    isLiveFired,
-    contradictionConfidence: adjustedConfidence,
-    priorQuote: bestMatch?.content ?? null,
-    priorDocumentPage: (bestMatch?.metadata?.page as number) ?? null,
-    priorDocumentLine: (bestMatch?.metadata?.line as number) ?? null,
-    impeachmentRisk,
-  };
-}
+    return {
+        "flagFound": True,
+        "isLiveFired": confidence >= threshold,
+        "contradictionConfidence": adjusted_confidence,
+        "priorQuote": best_match.get("content") if best_match else None,
+        "priorDocumentPage": best_match.get("metadata", {}).get("page") if best_match else None,
+        "priorDocumentLine": best_match.get("metadata", {}).get("line") if best_match else None,
+        "impeachmentRisk": impeachment_risk,
+    }
 ```
 
 ```bash
@@ -1167,98 +1329,133 @@ curl -X POST http://localhost:4000/api/v1/sessions/SEED_ID/agents/inconsistency 
 
 **Owner:** Nikhil  
 **Duration:** 120 minutes  
-**Goal:** Upload PDF → S3 → pre-screen → Nia indexing → fact extraction → ready in <3 min for 50-page demo doc.
+**Goal:** Upload PDF → S3 → text extraction → Claude fact extraction → Databricks Vector Search upsert → ready in <3 min for 50-page demo doc.
 
-```typescript
-// apps/backend/src/modules/documents/ingestion.worker.ts
-import { db } from '../../lib/prisma';
-import { redis } from '../../lib/redis';
-import { indexDocument, searchIndex } from '../../lib/nia';
-import { claudeChat } from '../../lib/claude';
-import pdfParse from 'pdf-parse';
-import mammoth from 'mammoth';
-import { GetObjectCommand } from '@aws-sdk/client-s3';
-import { s3, S3_BUCKET } from '../../lib/s3';
+```python
+# app/services/ingestion.py
+import json
+import hashlib
+from datetime import datetime
+import pdfplumber
+import mammoth
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from app.models.document import Document
+from app.redis_client import redis_client
+from app.services.s3 import download_bytes
+from app.services.claude import claude_chat
+from app.services.databricks_vector import upsert_prior_statement, get_embedding
+from app.database import AsyncSessionLocal
 
-export async function runIngestionPipeline(documentId: string) {
-  const doc = await db.document.findUnique({ where: { id: documentId } });
-  if (!doc) return;
 
-  const updateStatus = async (status: string, extra = {}) => {
-    await db.document.update({ where: { id: documentId }, data: { ingestionStatus: status, ...extra } });
-    await redis.set(`ingestion:${documentId}`, JSON.stringify({ status, ...extra }), 'EX', 600);
-  };
+async def run_ingestion_pipeline(document_id: str) -> None:
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(select(Document).where(Document.id == document_id))
+        doc = result.scalar_one_or_none()
+        if not doc:
+            return
 
-  try {
-    await updateStatus('INDEXING', { ingestionStartedAt: new Date() });
+        async def update_status(status: str, **extra):
+            doc.ingestion_status = status
+            for k, v in extra.items():
+                setattr(doc, k, v)
+            await db.commit()
+            await redis_client.set(
+                f"ingestion:{document_id}",
+                json.dumps({"status": status, **extra}),
+                ex=600,
+            )
 
-    // Step 1: Fetch file from S3
-    const s3Obj = await s3.send(new GetObjectCommand({ Bucket: S3_BUCKET, Key: doc.s3Key }));
-    const fileBuffer = Buffer.from(await streamToBuffer(s3Obj.Body as any));
+        try:
+            await update_status("INDEXING", ingestion_started_at=datetime.utcnow())
 
-    // Step 2: Extract text based on MIME type
-    let textContent: string;
-    let pageCount = 1;
+            # Step 1: Fetch file from S3
+            file_bytes = download_bytes(doc.s3_key)
 
-    if (doc.mimeType === 'application/pdf') {
-      const parsed = await pdfParse(fileBuffer);
-      textContent = parsed.text;
-      pageCount = parsed.numpages;
-    } else if (doc.mimeType.includes('wordprocessingml')) {
-      const { value } = await mammoth.extractRawText({ buffer: fileBuffer });
-      textContent = value;
-    } else {
-      textContent = fileBuffer.toString('utf-8');
-    }
+            # Step 2: Extract text based on MIME type
+            if doc.mime_type == "application/pdf":
+                with pdfplumber.open(__import__("io").BytesIO(file_bytes)) as pdf:
+                    text_content = "\n".join(
+                        page.extract_text() or "" for page in pdf.pages
+                    )
+                    page_count = len(pdf.pages)
+            elif "wordprocessingml" in doc.mime_type:
+                result_obj = mammoth.extract_raw_text(
+                    {"file_like_object": __import__("io").BytesIO(file_bytes)}
+                )
+                text_content = result_obj.value
+                page_count = 1
+            else:
+                text_content = file_bytes.decode("utf-8", errors="ignore")
+                page_count = 1
 
-    if (!textContent.trim()) {
-      throw new Error('No text content found in document. Scanned/image PDFs are not supported.');
-    }
+            if not text_content.strip():
+                raise ValueError(
+                    "No text content found in document. Scanned/image PDFs are not supported."
+                )
 
-    await redis.set(`ingestion:${documentId}`, JSON.stringify({ status: 'INDEXING', progress: 30, pageCount }), 'EX', 600);
+            await redis_client.set(
+                f"ingestion:{document_id}",
+                json.dumps({"status": "INDEXING", "progress": 30, "pageCount": page_count}),
+                ex=600,
+            )
 
-    // Step 3: Send to Nia for indexing
-    await indexDocument({
-      indexId: `case:${doc.caseId}`,
-      documentId: doc.id,
-      content: textContent,
-      metadata: { docType: doc.docType, caseId: doc.caseId, firmId: doc.firmId },
-    });
+            # Step 3: Extract structured facts via Claude
+            facts_json = await claude_chat(
+                "Extract structured facts from this legal document. "
+                "Return ONLY valid JSON with keys: parties, keyDates, disputedFacts, priorStatements. "
+                "Each is an array of objects.",
+                f"Document type: {doc.doc_type}\n\nContent:\n{text_content[:12000]}",
+                max_tokens=2048,
+            )
+            extracted_facts = json.loads(facts_json)
 
-    await redis.set(`ingestion:${documentId}`, JSON.stringify({ status: 'INDEXING', progress: 70, pageCount }), 'EX', 600);
+            await redis_client.set(
+                f"ingestion:{document_id}",
+                json.dumps({"status": "INDEXING", "progress": 60, "pageCount": page_count}),
+                ex=600,
+            )
 
-    // Step 4: Extract structured facts via Claude
-    const factsJson = await claudeChat(
-      'Extract structured facts from this legal document. Return ONLY valid JSON with keys: parties, keyDates, disputedFacts, priorStatements. Each is an array of objects.',
-      `Document type: ${doc.docType}\n\nContent:\n${textContent.slice(0, 12000)}`,
-      2048
-    );
+            # Step 4: Upsert prior statements to Databricks Vector Search
+            prior_statements = extracted_facts.get("priorStatements", [])
+            for idx, stmt in enumerate(prior_statements):
+                stmt_id = f"{document_id}-stmt-{idx}"
+                content = stmt.get("text", str(stmt))
+                upsert_prior_statement(
+                    statement_id=stmt_id,
+                    case_id=doc.case_id,
+                    content=content,
+                    metadata={
+                        "doc_id": document_id,
+                        "source_page": stmt.get("page", 0),
+                        "source_line": stmt.get("line", 0),
+                        "speaker": stmt.get("speaker", "UNKNOWN"),
+                    },
+                )
 
-    const extractedFacts = JSON.parse(factsJson);
+            await redis_client.set(
+                f"ingestion:{document_id}",
+                json.dumps({"status": "INDEXING", "progress": 90, "pageCount": page_count}),
+                ex=600,
+            )
 
-    // Step 5: Mark as READY
-    await updateStatus('READY', {
-      pageCount,
-      ingestionCompletedAt: new Date(),
-      extractedFacts,
-      niaIndexId: `case:${doc.caseId}:${doc.id}`,
-    });
+            # Step 5: Mark as READY
+            await update_status(
+                "READY",
+                page_count=page_count,
+                ingestion_completed_at=datetime.utcnow(),
+                extracted_facts=extracted_facts,
+                databricks_doc_id=f"case:{doc.case_id}:{document_id}",
+            )
+            print(f"✅ Ingestion complete for {document_id} ({page_count} pages)")
 
-    console.log(`✅ Ingestion complete for ${documentId} (${pageCount} pages)`);
-  } catch (err: any) {
-    await updateStatus('FAILED', {
-      ingestionError: err.message,
-      ingestionCompletedAt: new Date(),
-    });
-    console.error(`❌ Ingestion failed for ${documentId}:`, err.message);
-  }
-}
-
-async function streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
-  const chunks: Buffer[] = [];
-  for await (const chunk of stream) chunks.push(Buffer.from(chunk));
-  return Buffer.concat(chunks);
-}
+        except Exception as err:
+            await update_status(
+                "FAILED",
+                ingestion_error=str(err),
+                ingestion_completed_at=datetime.utcnow(),
+            )
+            print(f"❌ Ingestion failed for {document_id}: {err}")
 ```
 
 ```bash
@@ -1287,7 +1484,7 @@ watch -n 3 curl -s http://localhost:4000/api/v1/cases/DEMO_CASE_ID/documents/DOC
 **✅ Success Criteria:**
 - [ ] Demo PDF (50 pages) reaches READY status in <3 minutes
 - [ ] `extractedFacts` contains recognizable parties, dates, disputed facts from the demo doc
-- [ ] Nia search on the demo document returns relevant prior statements
+- [ ] Databricks Vector Search returns relevant prior statements when queried for the demo case
 - [ ] Duplicate upload (same file hash) returns `409 DUPLICATE_DOCUMENT`
 - [ ] Image-only PDF returns error with message about text extraction
 
@@ -1300,104 +1497,123 @@ watch -n 3 curl -s http://localhost:4000/api/v1/cases/DEMO_CASE_ID/documents/DOC
 **Goal:** Full WebSocket session room — attorney and witness both connected, events flowing both directions.
 
 ```python
-# app/routers/sessions.py — WebSocket endpoint (FastAPI built-in)
+# app/routers/ws.py — WebSocket endpoint (FastAPI built-in WebSocket)
+import json
+import asyncio
+from datetime import datetime
+from typing import Optional
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from jose import JWTError, jwt
+from sqlalchemy import select
 from app.redis_client import redis_client
 from app.database import AsyncSessionLocal
+from app.models.session import Session
+from app.models.attorney_annotation import AttorneyAnnotation
 from app.config import settings
 
 router = APIRouter()
 
+# In-memory room registry: session_id → {role: WebSocket}
+_rooms: dict[str, dict[str, WebSocket]] = {}
+
+
 @router.websocket("/ws/session/{session_id}")
 async def session_websocket(websocket: WebSocket, session_id: str):
     await websocket.accept()
-    token = websocket.query_params.get("token")
+    token = websocket.query_params.get("token", "")
     role = websocket.query_params.get("role", "attorney")
-    
-    # Auth: attorney uses JWT, witness uses token
-    if role == "witness" and token:
-        data = await redis_client.get(f"witness:{token}")
-        if not data:
-            await websocket.close(); return
+    user_id: Optional[str] = None
+
+    # Auth: witness uses Redis token, attorney uses JWT
+    if role == "witness":
+        stored = await redis_client.get(f"witness:{token}")
+        if not stored:
+            await websocket.close(code=4001)
+            return
+        stored_data = json.loads(stored)
+        if stored_data.get("sessionId") != session_id:
+            await websocket.close(code=4001)
+            return
     else:
+        try:
+            payload = jwt.decode(token, settings.JWT_SECRET, algorithms=["HS256"])
+            user_id = payload.get("sub")
+        except JWTError:
+            await websocket.close(code=4001)
+            return
 
-    // Auth: attorney uses JWT, witness uses token
-    let userId: string | null = null;
-    if (role === 'witness' && token) {
-      const data = await redis.get(`witness:${token}`);
-      if (!data) return socket.disconnect();
-      const { sessionId: tokenSessionId } = JSON.parse(data);
-      if (tokenSessionId !== sessionId) return socket.disconnect();
-    } else {
-      // JWT auth for attorney
-      const jwtToken = socket.handshake.auth.token || token;
-      try {
-        const payload = jwt.verify(jwtToken, process.env.JWT_SECRET!) as any;
-        userId = payload.sub;
-      } catch {
-        return socket.disconnect();
-      }
-    }
+    # Register in room
+    if session_id not in _rooms:
+        _rooms[session_id] = {}
+    _rooms[session_id][role] = websocket
 
-    // Join appropriate rooms
-    socket.join(`session:${sessionId}`);
-    if (role === 'witness') {
-      socket.join(`session:${sessionId}:witness`);
-      // Notify attorney that witness connected
-      io.to(`session:${sessionId}:attorney`).emit('witness_connected', { sessionId });
-      await db.session.update({ where: { id: sessionId }, data: { witnessJoinedAt: new Date() } });
-    } else {
-      socket.join(`session:${sessionId}:attorney`);
-    }
+    # Notify attorney when witness joins
+    if role == "witness":
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(select(Session).where(Session.id == session_id))
+            sess = result.scalar_one_or_none()
+            if sess:
+                sess.witness_joined_at = datetime.utcnow()
+                await db.commit()
+        atty_ws = _rooms.get(session_id, {}).get("attorney")
+        if atty_ws:
+            await atty_ws.send_json({"type": "witness_connected", "sessionId": session_id})
 
-    // Handle witness audio answer
-    socket.on('answer_audio', async (data) => {
-      // Handled in STT integration (Step 2.4)
-    });
+    try:
+        while True:
+            raw = await websocket.receive_text()
+            msg = json.loads(raw)
+            msg_type = msg.get("type", "")
 
-    // Attorney: add timestamped note
-    socket.on('annotation_add', async (data: { questionNumber: number; text: string }) => {
-      const session = await db.session.findUnique({ where: { id: sessionId } });
-      if (!session) return;
-      await db.attorneyAnnotation.create({
-        data: {
-          sessionId,
-          firmId: session.firmId,
-          questionNumber: data.questionNumber,
-          noteText: data.text,
-          sessionTimestampMs: Date.now(),
-        },
-      });
-    });
+            # Witness: STT transcription already handled in /agents/question SSE stream
+            if msg_type == "answer_text":
+                atty_ws = _rooms.get(session_id, {}).get("attorney")
+                if atty_ws:
+                    await atty_ws.send_json({
+                        "type": "answer_received",
+                        "questionNumber": msg.get("questionNumber"),
+                        "transcribedText": msg.get("text", ""),
+                    })
 
-    // Handle disconnect
-    socket.on('disconnect', () => {
-      if (role === 'witness') {
-        io.to(`session:${sessionId}:attorney`).emit('witness_disconnected', { sessionId });
-      }
-    });
+            # Attorney: timestamped annotation
+            elif msg_type == "annotation_add":
+                async with AsyncSessionLocal() as db:
+                    result = await db.execute(select(Session).where(Session.id == session_id))
+                    sess = result.scalar_one_or_none()
+                    if sess:
+                        db.add(AttorneyAnnotation(
+                            session_id=session_id,
+                            firm_id=sess.firm_id,
+                            question_number=msg.get("questionNumber", 0),
+                            note_text=msg.get("text", ""),
+                            session_timestamp_ms=int(datetime.utcnow().timestamp() * 1000),
+                        ))
+                        await db.commit()
 
-    // Auto-flush session events every 60 seconds (PRD §8.4 — max 60s data loss)
-    const flushInterval = setInterval(async () => {
-      await flushSessionEventBuffer(sessionId);
-    }, 60_000);
+            # Flush session event buffer to PostgreSQL every 60 s
+            elif msg_type == "flush_events":
+                buffered = await redis_client.get(f"session_events:{session_id}")
+                if buffered:
+                    # persist buffered events (handled in session event service)
+                    await redis_client.delete(f"session_events:{session_id}")
 
-    socket.on('disconnect', () => clearInterval(flushInterval));
-  });
-}
+    except WebSocketDisconnect:
+        _rooms.get(session_id, {}).pop(role, None)
+        if role == "witness":
+            atty_ws = _rooms.get(session_id, {}).get("attorney")
+            if atty_ws:
+                await atty_ws.send_json({"type": "witness_disconnected", "sessionId": session_id})
 ```
 
 ```bash
-# Test WebSocket connection with wscat
-npm install -g wscat
+# Test WebSocket connection with websocat (cross-platform alternative to wscat)
+# Install: https://github.com/vi/websocat
 
 # Attorney connection
-wscat -c "ws://localhost:4000/ws?sessionId=SEED_SESSION&role=attorney" \
-  --header "Authorization: Bearer JWT"
+websocat "ws://localhost:4000/ws/session/SEED_SESSION?role=attorney&token=JWT_TOKEN"
 
-# In second terminal — witness connection  
-wscat -c "ws://localhost:4000/ws?sessionId=SEED_SESSION&role=witness&token=WITNESS_TOKEN"
+# In second terminal — witness connection
+websocat "ws://localhost:4000/ws/session/SEED_SESSION?role=witness&token=WITNESS_TOKEN"
 
 # Send a test annotation from attorney:
 # > {"type":"annotation_add","questionNumber":3,"text":"Good moment to flag"}
@@ -1420,7 +1636,7 @@ wscat -c "ws://localhost:4000/ws?sessionId=SEED_SESSION&role=witness&token=WITNE
 **Goal:** All P0 screens built and navigable. Attorney can log in, see dashboard, create a case, and enter the live session screen.
 
 ```bash
-cd apps/frontend
+cd verdict-frontend/design-first-focus
 
 # Install UI dependencies
 npm install \
@@ -1460,7 +1676,7 @@ npx shadcn@latest add table input label form
 ```
 
 ```typescript
-// apps/frontend/src/lib/tailwind-config-additions.ts
+// verdict-frontend/design-first-focus/src/lib/tailwind-config-additions.ts
 // Add to tailwind.config.ts — VERDICT design tokens
 const verdictColors = {
   'verdict-navy': '#0F1729',      // Primary dark — three-panel session bg
@@ -1490,7 +1706,7 @@ const verdictColors = {
 10. `/briefs/:id` — coaching brief viewer
 
 ```typescript
-// apps/frontend/src/stores/session.store.ts — Zustand store for live session
+// verdict-frontend/design-first-focus/src/stores/session.store.ts — Zustand store for live session
 import { create } from 'zustand';
 
 interface Alert {
@@ -1498,7 +1714,7 @@ interface Alert {
   type: 'OBJECTION' | 'INCONSISTENCY' | 'COMPOSURE';
   questionNumber: number;
   firedAt: string;
-  fre Rule?: string;
+  freRule?: string;
   priorQuote?: string;
   contradictionConfidence?: number;
   impeachmentRisk?: 'STANDARD' | 'HIGH';
@@ -1575,134 +1791,138 @@ export const useSessionStore = create<SessionStore>((set) => ({
 **Owner:** Aman  
 **Duration:** 90 minutes
 
-```typescript
-// apps/backend/src/modules/agents/orchestrator.agent.ts
-import { claudeChat } from '../../lib/claude';
-import { eleven, VOICES } from '../../lib/elevenlabs';
-import { db } from '../../lib/prisma';
-import { s3, S3_BUCKET } from '../../lib/s3';
-import { PutObjectCommand } from '@aws-sdk/client-s3';
+```python
+# app/agents/orchestrator.py -- already implemented
+import json, re
+from datetime import datetime
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
+from app.database import AsyncSessionLocal
+from app.models.session import Session
+from app.models.brief import Brief
+from app.models.witness import Witness
+from app.services.claude import claude_chat
+from app.services.elevenlabs import text_to_speech
+from app.services.s3 import upload_bytes
+from app.config import settings
 
-export async function generateCoachingBrief(sessionId: string) {
-  const session = await db.session.findUnique({
-    where: { id: sessionId },
-    include: {
-      alerts: { where: { attorneyDecision: 'CONFIRMED' } },
-      witness: true,
-      case: true,
-    },
-  });
-  if (!session) throw new Error('Session not found');
 
-  const confirmedFlags = session.alerts.filter(a => a.alertType === 'INCONSISTENCY' || a.alertType === 'INCONSISTENCY_SECONDARY');
-  const objections = session.alerts.filter(a => a.alertType === 'OBJECTION');
-  const composureAlerts = session.alerts.filter(a => a.alertType === 'COMPOSURE');
+async def generate_coaching_brief(session_id: str) -> dict:
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(Session).where(Session.id == session_id)
+            .options(selectinload(Session.alerts), selectinload(Session.case),
+                     selectinload(Session.witness))
+        )
+        session = result.scalar_one_or_none()
+        if not session:
+            raise ValueError("Session not found")
 
-  // Compute topic sub-scores
-  const weaknessMapScores = computeWeaknessMap(session.alerts, session.focusAreas);
+        confirmed_flags = [a for a in session.alerts
+                           if a.attorney_decision == "CONFIRMED"
+                           and a.alert_type in ("INCONSISTENCY", "INCONSISTENCY_SECONDARY")]
+        objections       = [a for a in session.alerts if a.alert_type == "OBJECTION"]
+        composure_alerts = [a for a in session.alerts if a.alert_type == "COMPOSURE"]
+        weakness_map     = _compute_weakness_map(session.alerts)
 
-  // Compute session score (0-100): weighted composite
-  const sessionScore = Math.round(
-    (1 - confirmedFlags.length / Math.max(session.questionCount, 1)) * 50 + // consistency weight
-    (objections.length === 0 ? 25 : Math.max(0, 25 - objections.length * 5)) + // objection handling
-    (Math.min(weaknessMapScores.timeline + weaknessMapScores.financial, 100) / 100) * 25 // topic mastery
-  );
+        session_score = round(
+            (1 - len(confirmed_flags) / max(session.question_count, 1)) * 50
+            + (25 if not objections else max(0, 25 - len(objections) * 5))
+            + (min(weakness_map.get("timeline", 75) + weakness_map.get("financial", 75), 100) / 100) * 25
+        )
 
-  // Generate narrative via Claude
-  const narrativePrompt = `Generate a professional attorney coaching brief for this deposition session.
+        flag_lines = "
+".join(
+            f'- Q{a.question_number}: contradicts "{(a.prior_quote or "")[:80]}" (conf: {a.contradiction_confidence})'
+            for a in confirmed_flags
+        ) or "None"
 
-Case: ${session.case.name} (${session.case.caseType})
-Witness: ${session.witness.name} (${session.witness.role})
-Session Number: ${session.sessionNumber}
-Session Score: ${sessionScore}/100
-Questions asked: ${session.questionCount}
-Confirmed inconsistencies: ${confirmedFlags.length}
-Objection events: ${objections.length}
+        narrative_prompt = (
+            f"Generate a professional attorney coaching brief.
 
-Confirmed inconsistencies:
-${confirmedFlags.map(f => `- Q${f.questionNumber}: "${f.answerText}" contradicts prior statement: "${f.priorQuote}" (confidence: ${f.contradictionConfidence})`).join('\n')}
+"
+            f"Case: {session.case.name} ({session.case.case_type})
+"
+            f"Witness: {session.witness.name} ({session.witness.role})
+"
+            f"Session #{session.session_number} | Score: {session_score}/100 | "
+            f"Questions: {session.question_count}
+"
+            f"Confirmed inconsistencies: {len(confirmed_flags)} | Objections: {len(objections)}
 
-Weakness scores by topic: ${JSON.stringify(weaknessMapScores)}
+"
+            f"Inconsistency details:
+{flag_lines}
 
-Write a 3-paragraph coaching brief. Be specific, actionable, and professional.
-End with 3 numbered coaching recommendations.`;
+"
+            f"Weakness scores: {json.dumps(weakness_map)}
 
-  const narrativeText = await claudeChat(
-    'You are a senior litigation coach writing coaching briefs for attorneys preparing witnesses for depositions.',
-    narrativePrompt,
-    1500
-  );
+"
+            "Write a 3-paragraph brief. Be specific and actionable. End with 3 numbered recommendations."
+        )
+        narrative_text = await claude_chat(
+            "You are a senior litigation coach writing coaching briefs for attorneys.",
+            narrative_prompt, max_tokens=1500
+        )
 
-  // Generate ElevenLabs coach voice clips for each confirmed flag
-  const audioManifest = [];
-  for (const flag of confirmedFlags.slice(0, 3)) { // max 3 audio clips for brief
-    const clipText = `At question ${flag.questionNumber}, the witness said: "${flag.answerText?.slice(0, 100)}", which contradicts the prior sworn statement: "${flag.priorQuote?.slice(0, 100)}". This inconsistency has ${flag.impeachmentRisk} impeachment risk.`;
-    const audioStream = await textToSpeech(clipText, VOICES.COACH);
-    const s3Key = `firms/${session.firmId}/briefs/${sessionId}/alert_${flag.id}.mp3`;
-    // Upload audio to S3
-    const chunks: Buffer[] = [];
-    for await (const chunk of audioStream) chunks.push(Buffer.from(chunk));
-    const audioBuffer = Buffer.concat(chunks);
-    await s3.send(new PutObjectCommand({ Bucket: S3_BUCKET, Key: s3Key, Body: audioBuffer, ContentType: 'audio/mpeg' }));
-    audioManifest.push({ alertId: flag.id, s3Key, durationMs: Math.round(audioBuffer.length / 16000 * 1000) });
-  }
+        audio_manifest = []
+        for flag in confirmed_flags[:3]:
+            clip = (
+                f"At question {flag.question_number}, the witness contradicted prior sworn statement: "
+                f'"{(flag.prior_quote or "")[:100]}". Impeachment risk: {flag.impeachment_risk}.'
+            )
+            try:
+                audio_bytes = await text_to_speech(clip, settings.ELEVENLABS_COACH_VOICE_ID)
+                s3_key = f"firms/{session.firm_id}/briefs/{session_id}/alert_{flag.id}.mp3"
+                upload_bytes(s3_key, audio_bytes, content_type="audio/mpeg")
+                audio_manifest.append({"alertId": flag.id, "s3Key": s3_key})
+            except Exception:
+                pass
 
-  // Extract top 3 recommendations from narrative
-  const recommendations = extractRecommendations(narrativeText);
+        recommendations = [l.strip() for l in narrative_text.split("
+")
+                           if re.match(r"^\d+\.", l.strip())][:3] or [
+            "Practice precise, consistent answers for the key disputed facts.",
+            "Pause before answering questions beginning with 'Isn\'t it true...'",
+            "Review all prior deposition testimony carefully before the next session.",
+        ]
 
-  // Save brief
-  const brief = await db.brief.create({
-    data: {
-      sessionId,
-      firmId: session.firmId,
-      witnessId: session.witnessId,
-      generationStatus: 'COMPLETE',
-      generationCompletedAt: new Date(),
-      sessionScore,
-      consistencyRate: 1 - confirmedFlags.length / Math.max(session.questionCount, 1),
-      confirmedFlags: confirmedFlags.length,
-      objectionCount: objections.length,
-      composureAlertCount: composureAlerts.length,
-      topRecommendations: recommendations,
-      narrativeText,
-      weaknessMapScores,
-      elevenlabsAudioManifest: audioManifest,
-    },
-  });
+        brief = Brief(
+            session_id=session_id, firm_id=session.firm_id,
+            witness_id=session.witness_id,
+            generation_status="COMPLETE",
+            generation_completed_at=datetime.utcnow(),
+            session_score=session_score,
+            consistency_rate=1 - len(confirmed_flags) / max(session.question_count, 1),
+            confirmed_flags=len(confirmed_flags), objection_count=len(objections),
+            composure_alert_count=len(composure_alerts),
+            top_recommendations=recommendations, narrative_text=narrative_text,
+            weakness_map_scores=weakness_map, elevenlabs_audio_manifest=audio_manifest,
+        )
+        db.add(brief)
 
-  // Update witness profile
-  await db.witness.update({
-    where: { id: session.witnessId },
-    data: { latestScore: sessionScore, ...(session.sessionNumber === 1 ? { baselineScore: sessionScore } : {}) },
-  });
+        wit = (await db.execute(select(Witness).where(Witness.id == session.witness_id))).scalar_one_or_none()
+        if wit:
+            wit.latest_score = session_score
+            if session.session_number == 1:
+                wit.baseline_score = session_score
 
-  return brief;
-}
+        await db.commit()
+        await db.refresh(brief)
+        return {"briefId": brief.id, "sessionScore": session_score}
 
-function computeWeaknessMap(alerts: any[], focusAreas: string[]) {
-  // Score each axis 0-100 based on alert density per topic
-  const axes = ['timeline', 'financial', 'communications', 'relationships', 'actions', 'prior_statements'];
-  const scores: Record<string, number> = {};
-  axes.forEach(axis => { scores[axis] = 75; }); // baseline
-  
-  alerts.filter(a => a.attorneyDecision === 'CONFIRMED').forEach(alert => {
-    const topic = alert.metadata?.topic?.toLowerCase().replace('_', '') ?? '';
-    const matchedAxis = axes.find(a => topic.includes(a.replace('_', '')));
-    if (matchedAxis) scores[matchedAxis] = Math.max(0, scores[matchedAxis] - 15);
-  });
-  
-  return scores;
-}
 
-function extractRecommendations(narrativeText: string): string[] {
-  const lines = narrativeText.split('\n');
-  const numbered = lines.filter(l => /^\d\./.test(l.trim())).slice(0, 3);
-  return numbered.length >= 3 ? numbered : [
-    'Practice precise, consistent answers for the key disputed facts.',
-    'Pause before answering any question that begins with "Isn\'t it true..."',
-    'Review all prior deposition testimony carefully before the next session.',
-  ];
-}
+def _compute_weakness_map(alerts: list) -> dict:
+    axes = ["timeline", "financial", "communications", "relationships", "actions", "prior_statements"]
+    scores = {a: 75 for a in axes}
+    for alert in alerts:
+        if alert.attorney_decision != "CONFIRMED":
+            continue
+        topic = (alert.metadata or {}).get("topic", "").lower().replace("_", "")
+        matched = next((a for a in axes if topic in a.replace("_", "")), None)
+        if matched:
+            scores[matched] = max(0, scores[matched] - 15)
+    return scores
 ```
 
 **✅ Success Criteria:**
@@ -1723,10 +1943,9 @@ function extractRecommendations(narrativeText: string): string[] {
 **Goal:** Beautiful, polished brief viewer. Recharts radar chart rendering. Audio clip playback working.
 
 ```typescript
-// apps/frontend/src/app/briefs/[briefId]/page.tsx — key components
+// verdict-frontend/design-first-focus/src/pages/BriefViewerPage.tsx — key components
 
 // Score card with animated count-up
-'use client';
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 
@@ -1836,7 +2055,7 @@ function WeaknessMap({ scores }: { scores: Record<string, number> }) {
 **Goal:** MediaPipe Face Mesh running in-browser, AU vectors sent to backend, composure alerts firing.
 
 ```typescript
-// apps/frontend/src/lib/mediapipe-sentinel.ts
+// verdict-frontend/design-first-focus/src/lib/mediapipe-sentinel.ts
 import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
 
 let faceLandmarker: FaceLandmarker | null = null;
@@ -1943,65 +2162,60 @@ export function useBehavioralSentinel(sessionId: string, socket: any) {
 **Duration:** 60 minutes  
 **Goal:** Session events streaming to Databricks, Weakness Map data queryable.
 
-```typescript
-// apps/backend/src/lib/databricks.ts
-import { DBSQLClient } from '@databricks/sql';
+```python
+# app/services/databricks_sql.py -- Delta Lake session event streaming
+import json
+from databricks import sql as databricks_sql
+from app.config import settings
 
-const databricksClient = new DBSQLClient();
+_conn = None
 
-let databricksSession: any = null;
 
-async function getDatabricksSession() {
-  if (databricksSession) return databricksSession;
-  
-  await databricksClient.connect({
-    host: process.env.DATABRICKS_HOST!,
-    path: `/sql/1.0/warehouses/${process.env.DATABRICKS_SQL_WAREHOUSE_ID}`,
-    token: process.env.DATABRICKS_TOKEN!,
-  });
-  
-  databricksSession = await databricksClient.openSession({
-    initialCatalog: process.env.DATABRICKS_CATALOG,
-    initialSchema: process.env.DATABRICKS_SCHEMA,
-  });
-  
-  return databricksSession;
-}
+def _get_connection():
+    global _conn
+    if _conn is None:
+        _conn = databricks_sql.connect(
+            server_hostname=settings.DATABRICKS_HOST.replace("https://", ""),
+            http_path=f"/sql/1.0/warehouses/{settings.DATABRICKS_SQL_WAREHOUSE_ID}",
+            access_token=settings.DATABRICKS_TOKEN,
+        )
+    return _conn
 
-export async function streamSessionEventsToDelta(events: any[]) {
-  if (!events.length) return;
-  
-  try {
-    const session = await getDatabricksSession();
-    const operation = await session.executeStatement(`
-      INSERT INTO session_events_stream
-      SELECT * FROM VALUES
-      ${events.map(e => `('${e.sessionId}', '${e.firmId}', '${e.eventType}', '${e.occurredAt}', '${JSON.stringify(e.emotionVectors ?? {})}', ${e.questionNumber ?? 'null'})`).join(',')}
-    `);
-    await operation.close();
-    console.log(`✅ Streamed ${events.length} events to Databricks Delta`);
-  } catch (err) {
-    // Non-critical — log but don't break session
-    console.warn('Databricks stream failed (non-critical):', err);
-  }
-}
 
-export async function queryWeaknessMapScores(sessionId: string): Promise<Record<string, number>> {
-  try {
-    const session = await getDatabricksSession();
-    const operation = await session.executeStatement(`
-      SELECT topic_axis, AVG(confidence_score) as avg_score
-      FROM inconsistency_flags
-      WHERE session_id = '${sessionId}'
-      GROUP BY topic_axis
-    `);
-    const result = await operation.fetchAll();
-    await operation.close();
-    return Object.fromEntries(result.map((r: any) => [r.topic_axis, 100 - r.avg_score * 100]));
-  } catch {
-    return {}; // Graceful degradation
-  }
-}
+def stream_session_events_to_delta(events: list[dict]) -> None:
+    if not events:
+        return
+    try:
+        conn = _get_connection()
+        with conn.cursor() as cursor:
+            values = ", ".join(
+                f"('{e['sessionId']}', '{e['firmId']}', '{e['eventType']}', "
+                f"'{e['occurredAt']}', '{json.dumps(e.get('emotionVectors', {}))}', "
+                f"{e.get('questionNumber') or 'null'})"
+                for e in events
+            )
+            cursor.execute(
+                f"INSERT INTO {settings.DATABRICKS_CATALOG}.{settings.DATABRICKS_SCHEMA}"
+                f".session_events VALUES {values}"
+            )
+        print(f"Streamed {len(events)} events to Databricks Delta")
+    except Exception as err:
+        print(f"Databricks stream failed (non-critical): {err}")
+
+
+def query_weakness_map_scores(session_id: str) -> dict[str, float]:
+    try:
+        conn = _get_connection()
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f"SELECT topic_axis, AVG(confidence_score) as avg_score "
+                f"FROM {settings.DATABRICKS_CATALOG}.{settings.DATABRICKS_SCHEMA}.inconsistency_flags "
+                f"WHERE session_id = '{session_id}' GROUP BY topic_axis"
+            )
+            rows = cursor.fetchall()
+        return {row[0]: round(float(row[1]), 2) for row in rows}
+    except Exception:
+        return {}
 ```
 
 **✅ Success Criteria:**
@@ -2095,15 +2309,17 @@ function ScoreTrendChart({ sessions, depositionDate }: { sessions: any[]; deposi
 
 **Pre-staged demo data (load before presentation):**
 ```bash
-# Run demo seed script (extends prisma/seed.ts for full demo)
-npx tsx scripts/demo/seed-demo-scenario.ts
-# Creates:
-# - Firm: "Kirkland & Ellis LLP"
-# - Attorney: Sarah Chen (partner)
-# - Case: "Chen v. Metropolitan Hospital" (Medical Malpractice)
-# - 1 uploaded + indexed document: chen_depo_2024.pdf (50 pages)
-# - Witness: Dr. Emily Chen with 3 completed sessions (scores: 44, 61, 79)
-# - 3 briefs with full data (weakness maps, confirmed flags)
+# Seed base firm + user
+python scripts/seed.py
+
+# Seed all 5 demo cases with rich interrogation context
+python scripts/seed_cases.py
+# Creates the 5 demo cases from verdict-backend/data/verdict_cases.json:
+# 1. Lyman v. Capital City Transit District (Personal Injury)
+# 2. State of Utah v. Derek Gunn (Securities Fraud)
+# 3. Atlantis Property Group v. Tamontes Construction (Breach of Contract)
+# 4. Reyes v. Haller Medical Group (Medical Malpractice)
+# 5. Chen v. Meridian Financial Advisors (Elder Financial Abuse)
 ```
 
 ---
@@ -2115,14 +2331,21 @@ npx tsx scripts/demo/seed-demo-scenario.ts
 
 ```bash
 # 1. Final environment variable audit
-cat apps/backend/.env | grep -c "=" # count all vars
-# Verify all vars are in Railway dashboard
+python -c "
+import os
+from dotenv import load_dotenv
+load_dotenv('verdict-backend/.env')
+filled = [k for k, v in os.environ.items() if v and 'VERDICT' not in k]
+print(f'{len(filled)} env vars set')
+"
+# Verify all vars match Railway dashboard
 
 # 2. Run database migration on production
 DATABASE_URL=$PRODUCTION_DATABASE_URL alembic upgrade head
 
 # 3. Seed production with demo data
-DATABASE_URL=$PRODUCTION_DATABASE_URL npx tsx scripts/demo/seed-demo-scenario.ts
+railway run python scripts/seed.py
+railway run python scripts/seed_cases.py
 
 # 4. Deploy backend to Railway
 # Railway auto-deploys on push to main — just push:
@@ -2196,13 +2419,13 @@ curl -X POST https://api.verdict.law/api/v1/auth/login \
 - [ ] Anthropic Best Use of Claude SDK
 
 ### Tech Stack Tags to Add
-- ElevenLabs, Anthropic Claude, NVIDIA Nemotron, Databricks, Nia AI
-- Next.js, FastAPI, PostgreSQL, Redis, WebSocket
+- ElevenLabs, Anthropic Claude, NVIDIA Nemotron, Databricks
+- Vite+React, FastAPI, PostgreSQL, Redis, WebSocket
 - MediaPipe, Framer Motion, Recharts
 
 ### Architecture Diagram
 Include: 4-agent system diagram (from PRD Appendix)
-Show: data flow from document upload → Nia → session → alerts → brief
+Show: data flow from document upload → Databricks Vector Search → session → alerts → brief
 
 ### Sponsor Prize Justification (include in description)
 ElevenLabs: Dual use — Interrogator voice + Coach narration. Real-time STT for witness answers.
@@ -2222,7 +2445,7 @@ Pitch Structure (5 minutes):
   0:30 — Problem: 16 hours of manual roleplay. No consistency scoring. No coaching.
   1:00 — Solution: VERDICT. 4 AI agents working together.
   1:30 — LIVE DEMO (Scenario A — 2.5 minutes)
-  4:00 — Sponsor integrations: "Built on ElevenLabs, Databricks, Claude, Nia"
+  4:00 — Sponsor integrations: "Built on ElevenLabs, Databricks, Claude, Nemotron"
   4:30 — Traction: "August.law's exact use case. $14,400 addressable market at AmLaw 200."
   5:00 — Ask: "This is the future of trial preparation."
 
@@ -2263,12 +2486,13 @@ Questions to prep for:
 - [ ] ElevenLabs TTS delivering audio to witness browser
 - [ ] ElevenLabs STT transcribing witness answers
 - [ ] Objection Copilot firing within 1.5s
-- [ ] Nia FRE corpus indexed and queryable
+- [ ] Databricks Vector Search endpoint online; fre_rules_index queryable for Objection Copilot
+- [ ] Databricks prior_statements_index created and ready for document ingestion upserts
 - [ ] WebSocket session room: attorney + witness connected
 
 ### Milestone 3: Full Pipeline ✅
 **Target:** Hour 24 (Sat 6 PM)
-- [ ] Document upload → S3 → Nia ingestion → READY in <3 min
+- [ ] Document upload → S3 → text extraction → Databricks Vector Search upsert → READY in <3 min
 - [ ] Extracted facts displayed in Fact Review screen
 - [ ] Inconsistency Detector: demo contradiction ($200 vs $217) detected
 - [ ] Nemotron confidence score ≥0.75 triggering live alert
@@ -2304,7 +2528,7 @@ Questions to prep for:
 |------|-------------|--------|------------|
 | ElevenLabs TTS latency >2s | Medium | High — core UX | Use `eleven_turbo_v2_5` model. Test latency in Phase 2. Fallback: text-only questions |
 | Nemotron API rate limit hit | Medium | Medium — affects Inconsistency Detector | Cache embeddings in Redis. Use batch calls. Fallback: Claude-only scoring at threshold 0.85 |
-| Nia ingestion >5 min | Low | Medium — blocks demo | Pre-index demo document before hackathon. Cap at 50-page test doc |
+| Databricks Vector Search endpoint cold start | Medium | Medium — delays first query | Pre-warm endpoint before demo; disable Scale to Zero in endpoint settings |
 | MediaPipe WASM not loading | Low | Low — P1.4 only | Host face_landmarker.task in /public/models. CDN fallback. Feature can be skipped |
 | Databricks warehouse cold start | Medium | Low — demo only | Warm warehouse before demo. Keep alternative pre-queried static data |
 | WebSocket drops on demo laptop WiFi | Medium | High — live demo failure | Test on hackathon venue WiFi. Have hotspot backup. Record demo video |
@@ -2328,7 +2552,7 @@ Questions to prep for:
 |-----------|---------|
 | "Let's add voice-to-text real-time transcript display" | ❌ Cut if not already built. Shows aren't scored on features not in PRD |
 | "Let's integrate iManage Matter Management" | ❌ P2. Not started |
-| "Let's add multi-jurisdiction FRE rules" | ❌ P2. Nia FRE corpus is sufficient |
+| "Let's add multi-jurisdiction FRE rules" | ❌ P2. Databricks `fre_rules_index` is sufficient |
 | "Let's make a native iOS app" | ❌ Web only. No time |
 | "Let's add LangChain" | ❌ Claude SDK is sufficient. Dependency risk not worth it |
 | "Let's polish the marketing landing page" | ⚠️ Only if all P0 features are shipped with time remaining |
@@ -2344,7 +2568,7 @@ Questions to prep for:
 | 1 | Interrogator Agent asks legally appropriate questions via ElevenLabs voice | Manual: Start session, hear question audio within 2s |
 | 2 | Objection Copilot fires within 1.5s for a leading question | Manual: Ask "Isn't it true..." → alert in <1500ms |
 | 3 | Inconsistency Detector detects $200 vs $217 contradiction at ≥0.75 confidence | Manual: Demo script → see INCONSISTENCY alert |
-| 4 | Document upload → Nia ingestion → READY in <3 min for 50-page PDF | Automated timing test |
+| 4 | Document upload → S3 → Databricks Vector Search upsert → READY in <3 min for 50-page PDF | Automated timing test |
 | 5 | Coaching Brief generated with Claude narrative + ElevenLabs coach voice | Manual: End session → wait → hear coach voice in brief |
 | 6 | Full session flow navigable without errors: login → case → session → brief | Manual E2E walkthrough |
 | 7 | Attorney alert rail shows objection and inconsistency alerts in real-time | Manual: Live session with witness browser open |
@@ -2365,7 +2589,7 @@ Questions to prep for:
 
 | Sponsor | What's Required | Our Implementation |
 |---------|----------------|-------------------|
-| **August.law** (primary) | End-to-end AI legal workflow | Full 5-agent deposition prep pipeline |
+| **August.law** (primary) | End-to-end AI legal workflow | 4-agent deposition prep pipeline + optional Behavioral Sentinel module |
 | **ElevenLabs** | Voice AI as core feature | Interrogator TTS + STT + Coach narration |
 | **Databricks** | Delta Lake or Delta Live Tables used meaningfully | Session events + emotion vectors streamed to Delta |
 | **Anthropic** | Claude SDK with meaningful orchestration | 4 agents all using Claude; streaming; tool use |
@@ -2380,7 +2604,7 @@ Questions to prep for:
 2. **August.law partnership call** — Discuss integration requirements, compliance review
 3. **AmLaw 200 pilot outreach** — 5 firms for paid pilot at $2,500/month
 4. **SAML SSO** — Full Okta/AzureAD integration for enterprise pilot firms
-5. **Puppeteer PDF export** — Full brief PDF with branded letterhead
+5. **Enhanced PDF export** — Full brief PDF with branded letterhead (extends `app/services/pdf_report.py`)
 6. **WCAG 2.1 AA audit** — Accessibility compliance for enterprise legal tools
 
 ### P1 Feature Completion (Q2 2026)
@@ -2399,7 +2623,7 @@ Questions to prep for:
 | Feature | Description |
 |---------|-------------|
 | **P2.1 Whisper-in-Ear Mode** | Real-time coaching cues to attorney earpiece via ElevenLabs spatial audio |
-| **P2.2 Multi-Jurisdiction FRE** | Nia-indexed state evidence rules (CA, NY, TX, FL) |
+| **P2.2 Multi-Jurisdiction FRE** | Databricks Vector Search-indexed state evidence rules (CA, NY, TX, FL) |
 | **P2.3 Case Outcome Analytics** | MLflow-powered prediction: deposition score → trial outcome correlation |
 | **P2.4 Telephony Integration** | Twilio-based remote deposition support |
 | **P2.5 Matter Management** | iManage + Clio integration for case file sync |
