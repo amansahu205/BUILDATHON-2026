@@ -17,9 +17,13 @@ Runtime: ~15 min first time (endpoint provisioning).
 """
 
 import sys
+import os
 import time
+from pathlib import Path
 from dotenv import load_dotenv
 
+# Allow running from verdict-backend/ directly
+sys.path.insert(0, str(Path(__file__).parent.parent))
 load_dotenv()
 
 from app.config import settings  # noqa: E402
