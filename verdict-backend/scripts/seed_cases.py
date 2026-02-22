@@ -62,14 +62,12 @@ async def main():
         print(f"Using firm_id={firm.id}, owner_id={owner.id} ({owner.email})")
 
         seeded = 0
+        updated = 0
         skipped = 0
 
         for raw in cases_raw:
-            existing = await db.execute(select(Case).where(Case.id == raw["id"]))
-            if existing.scalar_one_or_none():
-                print(f"  SKIP (exists): {raw['case_name']}")
-                skipped += 1
-                continue
+            existing_result = await db.execute(select(Case).where(Case.id == raw["id"]))
+            existing_case = existing_result.scalar_one_or_none()
 
             dep_date = None
             try:
@@ -79,21 +77,36 @@ async def main():
 
             case_type = CASE_TYPE_MAP.get(raw.get("case_type", ""), "OTHER")
 
-            case = Case(
-                id=raw["id"],
-                firm_id=firm.id,
-                owner_id=owner.id,
-                case_name=raw["case_name"],
-                case_type=case_type,
-                opposing_party=raw.get("opposing_party", ""),
-                deposition_date=dep_date,                witness_name=raw.get("witness_name", ""),
-                witness_role=raw.get("witness_role", ""),
-                aggression_level=raw.get("aggression_level", "Medium"),                extracted_facts=raw.get("extracted_facts", ""),
-                prior_statements=raw.get("prior_statements", ""),
-                exhibit_list=raw.get("exhibit_list", ""),
-                focus_areas=raw.get("focus_areas", ""),
-            )
-            db.add(case)
+            if existing_case:
+                # Update the existing case with full data (witness fields, facts, etc.)
+                existing_case.witness_name = raw.get("witness_name", "")
+                existing_case.witness_role = raw.get("witness_role", "")
+                existing_case.aggression_level = raw.get("aggression_level", "Medium")
+                existing_case.extracted_facts = raw.get("extracted_facts", "")
+                existing_case.prior_statements = raw.get("prior_statements", "")
+                existing_case.exhibit_list = raw.get("exhibit_list", "")
+                existing_case.focus_areas = raw.get("focus_areas", "")
+                existing_case.opposing_party = raw.get("opposing_party", existing_case.opposing_party)
+                print(f"  UPDATE (exists): {raw['case_name']}")
+                case = existing_case
+            else:
+                case = Case(
+                    id=raw["id"],
+                    firm_id=firm.id,
+                    owner_id=owner.id,
+                    case_name=raw["case_name"],
+                    case_type=case_type,
+                    opposing_party=raw.get("opposing_party", ""),
+                    deposition_date=dep_date,
+                    witness_name=raw.get("witness_name", ""),
+                    witness_role=raw.get("witness_role", ""),
+                    aggression_level=raw.get("aggression_level", "Medium"),
+                    extracted_facts=raw.get("extracted_facts", ""),
+                    prior_statements=raw.get("prior_statements", ""),
+                    exhibit_list=raw.get("exhibit_list", ""),
+                    focus_areas=raw.get("focus_areas", ""),
+                )
+                db.add(case)
             await db.flush()
 
             # Parse witness name (format: "Name; Role/Title")
@@ -113,22 +126,36 @@ async def main():
             else:
                 witness_role = "OTHER"
 
-            witness = Witness(
-                case_id=raw["id"],
-                firm_id=firm.id,
-                name=witness_name,
-                email=f"witness.{raw['id']}@verdictdemo.com",
-                role=witness_role,
-                notes=witness_role_notes,
+            # Upsert witness record
+            existing_witness = await db.execute(
+                select(Witness).where(Witness.case_id == raw["id"])
             )
-            db.add(witness)
+            w = existing_witness.scalars().first()
+            if w:
+                w.name = witness_name
+                w.role = witness_role
+                w.notes = witness_role_notes
+            else:
+                w = Witness(
+                    case_id=raw["id"],
+                    firm_id=firm.id,
+                    name=witness_name,
+                    email=f"witness.{raw['id']}@verdictdemo.com",
+                    role=witness_role,
+                    notes=witness_role_notes,
+                )
+                db.add(w)
 
-            print(f"  SEEDED: {raw['case_name']} — witness: {witness_name} ({witness_role})")
-            seeded += 1
+            if existing_case:
+                print(f"  UPDATED: {raw['case_name']} — witness: {witness_name} ({witness_role})")
+                updated += 1
+            else:
+                print(f"  SEEDED: {raw['case_name']} — witness: {witness_name} ({witness_role})")
+                seeded += 1
 
         await db.commit()
 
-    print(f"\nDone. Seeded: {seeded}, Skipped (already existed): {skipped}")
+    print(f"\nDone. Seeded: {seeded}, Updated: {updated}, Skipped: {skipped}")
     print("\nVerifying DB...")
 
     async with AsyncSessionLocal() as db:

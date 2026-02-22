@@ -202,6 +202,17 @@ async def create_session(
     from nanoid import generate
     witness_token = generate(size=24)
 
+    # Normalize aggression to DB enum values
+    _aggression_map = {
+        "Low": "STANDARD", "low": "STANDARD",
+        "Medium": "ELEVATED", "medium": "ELEVATED",
+        "High": "HIGH_STAKES", "high": "HIGH_STAKES",
+        "STANDARD": "STANDARD",
+        "ELEVATED": "ELEVATED",
+        "HIGH_STAKES": "HIGH_STAKES",
+    }
+    normalized_aggression = _aggression_map.get(body.aggression, "STANDARD")
+
     session = Session(
         case_id=body.caseId,
         witness_id=body.witnessId,
@@ -210,7 +221,7 @@ async def create_session(
         session_number=session_number,
         status="LOBBY",
         duration_minutes=body.durationMinutes,
-        aggression=body.aggression,
+        aggression=normalized_aggression,
         focus_areas=body.focusAreas,
         objection_copilot_enabled=body.objectionCopilotEnabled,
         sentinel_enabled=body.sentinelEnabled,
